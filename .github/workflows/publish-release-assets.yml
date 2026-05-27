@@ -112,3 +112,57 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Attach macOS assets to the existing release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            const tag = `v${packageJson.version}`;
+            const release = await github.rest.repos.getReleaseByTag({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag
+            });
+
+            const distDir = path.join(process.cwd(), 'dist');
+            const assets = fs.readdirSync(distDir)
+              .filter((fileName) => {
+                const isMacAppAsset = /^ProjectFolderLauncher-.+-mac\.(dmg|zip)(\.blockmap)?$/.test(fileName);
+                return isMacAppAsset || fileName === 'latest-mac.yml';
+              })
+              .sort();
+
+            if (assets.length === 0) {
+              core.setFailed('No macOS assets were generated in dist/.');
+              return;
+            }
+
+            for (const fileName of assets) {
+              const existingAsset = release.data.assets.find((asset) => asset.name === fileName);
+              if (existingAsset) {
+                await github.rest.repos.deleteReleaseAsset({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  asset_id: existingAsset.id
+                });
+              }
+
+              const filePath = path.join(distDir, fileName);
+              const data = fs.readFileSync(filePath);
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.data.id,
+                name: fileName,
+                data,
+                headers: {
+                  'content-type': 'application/octet-stream',
+                  'content-length': data.length
+                }
+              });
+              core.info(`Uploaded ${fileName}`);
+            }
