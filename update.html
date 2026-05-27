@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+    <title>Mise à jour</title>
+    <link rel="stylesheet" href="update.css">
+</head>
+
+<body>
+    <main class="update-container" role="dialog" aria-label="Mise à jour Project Folder Launcher">
+        <div class="title-bar">
+            <h1>Mise à jour</h1>
+            <button class="title-bar-btn" id="closeBtn" type="button" aria-label="Fermer">✕</button>
+        </div>
+
+        <section class="update-content">
+            <div class="status-icon" id="statusIcon" aria-hidden="true">⬇</div>
+            <h2 id="statusTitle">Recherche de mise à jour...</h2>
+            <p id="statusMessage">Veuillez patienter.</p>
+
+            <div class="version-row">
+                <span>Version installée</span>
+                <strong id="currentVersion">-</strong>
+            </div>
+            <div class="version-row">
+                <span>Version disponible</span>
+                <strong id="availableVersion">-</strong>
+            </div>
+
+            <div class="progress-area" id="progressArea">
+                <div class="progress-track" aria-label="Progression du téléchargement">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="progress-meta">
+                    <span id="progressLabel">0 %</span>
+                    <span id="speedLabel"></span>
+                </div>
+            </div>
+
+            <pre class="release-notes" id="releaseNotes"></pre>
+        </section>
+
+        <div class="update-actions">
+            <button class="btn btn-secondary" id="laterBtn" type="button">Plus tard</button>
+            <button class="btn btn-primary" id="primaryBtn" type="button">Télécharger et installer</button>
+        </div>
+    </main>
+
+    <script src="update-renderer.js"></script>
+</body>
+
+</html>

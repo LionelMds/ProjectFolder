@@ -3,6 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const { execFile } = require('child_process');
+const { autoUpdater } = require('electron-updater');
 
 const APP_NAME = 'Project Folder Launcher';
 const MAIN_WINDOW_SIZE = { width: 450, height: 400 };
@@ -13,16 +14,32 @@ const MINI_DEFAULT_HEIGHT = 44;
 const MINI_EDGE_PADDING = 8;
 const VALID_INTEGRATION_MODES = ['floating', 'docked', 'hidden'];
 const VALID_OPEN_BEHAVIORS = ['newWindow', 'newTab', 'reuseWindow'];
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
 
 let mainWindow = null;
 let miniWindow = null;
 let settingsWindow = null;
+let updateWindow = null;
 let tray = null;
 let config = null;
 let configPath = null;
 let logPath = null;
 let dockedMoveMode = false;
 let miniZOrderTimer = null;
+let updateCheckTimer = null;
+let pendingUpdateInfo = null;
+let updateState = {
+  status: 'idle',
+  message: 'Prêt',
+  currentVersion: app.getVersion(),
+  availableVersion: null,
+  percent: 0,
+  bytesPerSecond: 0,
+  transferred: 0,
+  total: 0,
+  error: null,
+  manual: false
+};
 
 /**
  * Returns true when the app is running on macOS.
@@ -119,6 +136,353 @@ function notifyError(title, error) {
       title: APP_NAME,
       body: message
     }).show();
+  }
+}
+
+/**
+ * Formats a byte count for update progress display.
+ * @param {number} bytes
+ * @returns {string}
+ */
+function formatBytes(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) {
+    return '0 B';
+  }
+
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const value = bytes / (1024 ** exponent);
+  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+}
+
+/**
+ * Converts release notes from provider data into plain text.
+ * @param {unknown} releaseNotes
+ * @returns {string}
+ */
+function normalizeReleaseNotes(releaseNotes) {
+  if (!releaseNotes) {
+    return '';
+  }
+
+  if (typeof releaseNotes === 'string') {
+    return releaseNotes.replace(/<[^>]+>/g, '').trim();
+  }
+
+  if (Array.isArray(releaseNotes)) {
+    return releaseNotes
+      .map(item => {
+        if (typeof item === 'string') {
+          return item;
+        }
+
+        if (item && typeof item === 'object') {
+          return item.note || item.notes || item.version || '';
+        }
+
+        return '';
+      })
+      .filter(Boolean)
+      .join('\n');
+  }
+
+  return '';
+}
+
+/**
+ * Sends update state to the update window.
+ */
+function broadcastUpdateState() {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.webContents.send('update-state', updateState);
+  }
+}
+
+/**
+ * Updates the stored updater state.
+ * @param {object} partial
+ */
+function setUpdateState(partial) {
+  updateState = {
+    ...updateState,
+    ...partial
+  };
+
+  logEvent('Updater state changed', {
+    status: updateState.status,
+    message: updateState.message,
+    percent: updateState.percent,
+    availableVersion: updateState.availableVersion
+  });
+  broadcastUpdateState();
+}
+
+/**
+ * Creates the update progress window.
+ */
+function createUpdateWindow() {
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    return;
+  }
+
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  updateWindow = new BrowserWindow({
+    width: 430,
+    height: 320,
+    x: Math.round((width - 430) / 2),
+    y: Math.round((height - 320) / 2),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    skipTaskbar: false,
+    alwaysOnTop: true,
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    ...(isMac() && {
+      vibrancy: 'under-window',
+      visualEffectState: 'active',
+      backgroundColor: '#00000000'
+    }),
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+
+  updateWindow.loadFile('update.html');
+  updateWindow.on('closed', () => {
+    updateWindow = null;
+  });
+  updateWindow.webContents.once('did-finish-load', () => {
+    broadcastUpdateState();
+  });
+}
+
+/**
+ * Shows the update window and broadcasts current state.
+ */
+function showUpdateWindow() {
+  createUpdateWindow();
+
+  if (updateWindow && !updateWindow.isDestroyed()) {
+    updateWindow.show();
+    updateWindow.focus();
+    broadcastUpdateState();
+  }
+}
+
+/**
+ * Displays a desktop notification for an available update.
+ * @param {object} info
+ */
+function notifyUpdateAvailable(info) {
+  if (!Notification.isSupported()) {
+    return;
+  }
+
+  const notification = new Notification({
+    title: APP_NAME,
+    body: `Mise à jour ${info.version} disponible`
+  });
+
+  notification.on('click', () => showUpdateWindow());
+  notification.show();
+}
+
+/**
+ * Configures electron-updater event handlers.
+ */
+function configureAutoUpdater() {
+  autoUpdater.autoDownload = false;
+  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.allowPrerelease = false;
+  autoUpdater.allowDowngrade = false;
+
+  autoUpdater.on('checking-for-update', () => {
+    setUpdateState({
+      status: 'checking',
+      message: 'Recherche de mise à jour...',
+      error: null,
+      percent: 0
+    });
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    pendingUpdateInfo = info;
+    setUpdateState({
+      status: 'available',
+      message: `Version ${info.version} disponible`,
+      availableVersion: info.version,
+      releaseDate: info.releaseDate || null,
+      releaseNotes: normalizeReleaseNotes(info.releaseNotes),
+      error: null,
+      percent: 0
+    });
+    notifyUpdateAvailable(info);
+    showUpdateWindow();
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    setUpdateState({
+      status: 'not-available',
+      message: 'Le logiciel est à jour.',
+      availableVersion: null,
+      percent: 0,
+      error: null
+    });
+
+    if (updateState.manual) {
+      showUpdateWindow();
+    }
+  });
+
+  autoUpdater.on('download-progress', (progress) => {
+    const percent = Math.max(0, Math.min(progress.percent || 0, 100));
+    app.setProgressBar(percent / 100);
+    setUpdateState({
+      status: 'downloading',
+      message: `Téléchargement ${percent.toFixed(0)} %`,
+      percent,
+      bytesPerSecond: progress.bytesPerSecond || 0,
+      transferred: progress.transferred || 0,
+      total: progress.total || 0,
+      speedLabel: `${formatBytes(progress.bytesPerSecond || 0)}/s`,
+      progressLabel: `${formatBytes(progress.transferred || 0)} / ${formatBytes(progress.total || 0)}`
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    app.setProgressBar(-1);
+    setUpdateState({
+      status: 'ready',
+      message: 'Mise à jour téléchargée. Installation...',
+      availableVersion: info.version || updateState.availableVersion,
+      percent: 100,
+      error: null
+    });
+    showUpdateWindow();
+    setTimeout(() => installDownloadedUpdate(), 900);
+  });
+
+  autoUpdater.on('error', (error) => {
+    app.setProgressBar(-1);
+    setUpdateState({
+      status: 'error',
+      message: 'La mise à jour a échoué.',
+      error: error.message || String(error)
+    });
+    showUpdateWindow();
+    logEvent('Updater error', { error: error.message || String(error) });
+  });
+}
+
+/**
+ * Checks for updates. In development, shows a friendly state instead of failing.
+ * @param {boolean} manual
+ */
+async function checkForUpdates(manual = false) {
+  setUpdateState({ manual });
+
+  if (!app.isPackaged) {
+    setUpdateState({
+      status: 'not-available',
+      message: 'Les mises à jour automatiques se testent sur une version installée.',
+      error: null,
+      percent: 0
+    });
+
+    if (manual) {
+      showUpdateWindow();
+    }
+
+    return { success: true, devMode: true };
+  }
+
+  if (['checking', 'downloading'].includes(updateState.status)) {
+    if (manual) {
+      showUpdateWindow();
+    }
+
+    return { success: true, status: updateState.status };
+  }
+
+  if (manual) {
+    showUpdateWindow();
+  }
+
+  await autoUpdater.checkForUpdates();
+  return { success: true };
+}
+
+/**
+ * Starts downloading the update and installs it when ready.
+ */
+async function startUpdateDownload() {
+  if (updateState.status === 'ready') {
+    installDownloadedUpdate();
+    return { success: true };
+  }
+
+  if (!pendingUpdateInfo && updateState.status !== 'available') {
+    await checkForUpdates(true);
+    return { success: true };
+  }
+
+  showUpdateWindow();
+  setUpdateState({
+    status: 'downloading',
+    message: 'Préparation du téléchargement...',
+    percent: 0,
+    error: null
+  });
+  await autoUpdater.downloadUpdate();
+  return { success: true };
+}
+
+/**
+ * Installs the downloaded update and restarts the app.
+ */
+function installDownloadedUpdate() {
+  if (!app.isPackaged) {
+    setUpdateState({
+      status: 'error',
+      message: 'Installation indisponible en mode développement.',
+      error: null
+    });
+    return;
+  }
+
+  setUpdateState({
+    status: 'installing',
+    message: 'Fermeture et lancement de l’installateur...',
+    percent: 100,
+    error: null
+  });
+  stopMiniZOrderKeeper();
+  app.setProgressBar(-1);
+  autoUpdater.quitAndInstall(false, true);
+}
+
+/**
+ * Schedules background update checks.
+ */
+function scheduleUpdateChecks() {
+  if (updateCheckTimer) {
+    clearInterval(updateCheckTimer);
+  }
+
+  setTimeout(() => {
+    checkForUpdates(false).catch(error => logEvent('Scheduled update check failed', { error: error.message }));
+  }, 15000);
+
+  updateCheckTimer = setInterval(() => {
+    checkForUpdates(false).catch(error => logEvent('Scheduled update check failed', { error: error.message }));
+  }, UPDATE_CHECK_INTERVAL_MS);
+
+  if (typeof updateCheckTimer.unref === 'function') {
+    updateCheckTimer.unref();
   }
 }
 
@@ -957,6 +1321,11 @@ function buildTrayMenu() {
     },
     { type: 'separator' },
     {
+      label: 'Vérifier les mises à jour...',
+      click: () => checkForUpdates(true).catch(error => notifyError('Recherche de mise à jour impossible', error))
+    },
+    { type: 'separator' },
+    {
       label: 'Paramètres...',
       click: () => createSettingsWindow()
     },
@@ -1519,6 +1888,20 @@ function registerIpcHandlers() {
 
   registerIpcHandler('toggle-mini-pin', async () => toggleMiniPin());
 
+  registerIpcHandler('check-for-updates', async () => checkForUpdates(true));
+  registerIpcHandler('start-update-download', async () => startUpdateDownload());
+  registerIpcHandler('install-downloaded-update', async () => {
+    installDownloadedUpdate();
+    return { success: true };
+  });
+  registerIpcHandler('close-update-window', async () => {
+    if (updateWindow && !updateWindow.isDestroyed() && updateState.status !== 'installing') {
+      updateWindow.close();
+    }
+
+    return { success: true };
+  });
+
   registerIpcHandler('resize-mini-bar', async (event, newWidth) => {
     if (!miniWindow || miniWindow.isDestroyed()) {
       return { success: false, error: 'Mini-barre indisponible' };
@@ -1606,12 +1989,14 @@ app.whenReady().then(() => {
   logPath = getLogPath();
   loadConfig();
   logEvent('App ready', { platform: process.platform, version: app.getVersion() });
+  configureAutoUpdater();
   setupAutoLaunch();
   registerIpcHandlers();
   createWindow();
   createTray();
   createMiniWindow();
   registerGlobalShortcut();
+  scheduleUpdateChecks();
 
   screen.on('display-metrics-changed', handleDisplayMetricsChanged);
   screen.on('display-added', handleDisplayMetricsChanged);
@@ -1634,6 +2019,10 @@ app.on('before-quit', () => {
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
+  if (updateCheckTimer) {
+    clearInterval(updateCheckTimer);
+    updateCheckTimer = null;
+  }
   stopMiniZOrderKeeper();
   logEvent('App quitting');
 });
