@@ -16,6 +16,14 @@ on:
           - windows
           - macos
           - all
+      macos_signing:
+        description: "macOS signing mode. Use unsigned only for temporary test releases."
+        required: true
+        type: choice
+        default: "unsigned"
+        options:
+          - unsigned
+          - signed
 
 permissions:
   contents: write
@@ -47,7 +55,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   macos:
-    name: Signed macOS DMG, ZIP and updater metadata
+    name: macOS DMG, ZIP and updater metadata
     if: ${{ inputs.platform == 'macos' || inputs.platform == 'all' }}
     runs-on: macos-14
 
@@ -64,6 +72,7 @@ jobs:
           cache: npm
 
       - name: Validate macOS signing secrets
+        if: ${{ inputs.macos_signing == 'signed' }}
         shell: bash
         env:
           CSC_LINK: ${{ secrets.CSC_LINK }}
@@ -86,7 +95,15 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Publish temporary unsigned macOS release assets
+        if: ${{ inputs.macos_signing == 'unsigned' }}
+        run: npm run release:mac
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+
       - name: Publish signed macOS release assets
+        if: ${{ inputs.macos_signing == 'signed' }}
         run: npm run release:mac
         env:
           GH_TOKEN: ${{ github.token }}

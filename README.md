@@ -92,8 +92,11 @@ Pour ajouter le DMG macOS à une release existante, lancer le workflow manuellem
 
 - `ref` : `main`
 - `platform` : `macos`
+- `macos_signing` : `unsigned` pour un DMG temporaire non signé, ou `signed` quand les secrets Apple Developer sont configurés.
 
 Le workflow publie les DMG x64/arm64, les ZIP x64/arm64 et `latest-mac.yml`.
+
+Un build `unsigned` est utile pour tester et distribuer provisoirement un DMG, mais macOS affichera des avertissements Gatekeeper et l'auto-update macOS ne doit pas être considéré comme fiable tant que l'app n'est pas signée/notarisée.
 
 ## Configuration
 
