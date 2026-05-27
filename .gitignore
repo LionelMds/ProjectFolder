@@ -1,0 +1,10 @@
+node_modules/
+dist/
+config.json
+*.log
+*.lnk
+.claude/
+_ul
+*.tmp
+*.bak
+

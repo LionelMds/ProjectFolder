@@ -1,0 +1,614 @@
+/* Settings Window Styles - Glassmorphism */
+:root {
+    --bg-primary: rgba(32, 32, 32, 0.95);
+    --bg-secondary: rgba(45, 45, 45, 0.9);
+    --bg-hover: rgba(60, 60, 60, 0.9);
+    --bg-active: rgba(80, 80, 80, 0.9);
+    --text-primary: #ffffff;
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-muted: rgba(255, 255, 255, 0.4);
+    --accent: #0078d4;
+    --accent-hover: #1a86d9;
+    --border: rgba(255, 255, 255, 0.1);
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    --radius: 12px;
+    --radius-sm: 8px;
+    --danger: #f44336;
+    --danger-hover: #e53935;
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --bg-primary: rgba(255, 255, 255, 0.95);
+        --bg-secondary: rgba(245, 245, 245, 0.9);
+        --bg-hover: rgba(235, 235, 235, 0.9);
+        --bg-active: rgba(220, 220, 220, 0.9);
+        --text-primary: #1a1a1a;
+        --text-secondary: rgba(0, 0, 0, 0.7);
+        --text-muted: rgba(0, 0, 0, 0.4);
+        --border: rgba(0, 0, 0, 0.1);
+        --shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: transparent;
+    color: var(--text-primary);
+    overflow: hidden;
+    user-select: none;
+}
+
+/* Main container */
+.settings-container {
+    background: var(--bg-primary);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    margin: 8px;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 16px);
+    animation: slideIn 0.15s ease-out;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Custom title bar */
+.title-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    -webkit-app-region: drag;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.title-bar h1 {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.title-bar-btn {
+    -webkit-app-region: no-drag;
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 18px;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.1s ease;
+}
+
+.title-bar-btn:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* Scrollable content */
+.settings-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+/* Sections */
+.settings-section {
+    margin-bottom: 24px;
+}
+
+.settings-section h2 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+/* Input fields */
+.input-field {
+    width: 100%;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+    color: var(--text-primary);
+    font-size: 13px;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    outline: none;
+    transition: all 0.15s ease;
+}
+
+.input-field:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+.input-field::placeholder {
+    color: var(--text-muted);
+}
+
+.input-field[readonly] {
+    cursor: default;
+    opacity: 0.8;
+}
+
+/* Path picker */
+.path-picker {
+    display: flex;
+    gap: 8px;
+}
+
+.path-picker .input-field {
+    flex: 1;
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+
+/* Buttons */
+.btn {
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 10px 16px;
+    font-size: 13px;
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.btn:focus-visible,
+.title-bar-btn:focus-visible,
+.input-field:focus-visible,
+.subfolder-icon-input:focus-visible,
+.emoji-btn:focus-visible,
+.radio-label:focus-within,
+.checkbox-label:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-secondary {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+    background: var(--bg-hover);
+}
+
+.btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
+.btn-danger {
+    background: transparent;
+    color: var(--danger);
+    padding: 6px 8px;
+}
+
+.btn-danger:hover {
+    background: rgba(244, 67, 54, 0.15);
+}
+
+.btn-icon {
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 6px 8px;
+    min-width: 28px;
+    justify-content: center;
+}
+
+.btn-icon:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+/* Subfolder list */
+.subfolder-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.subfolder-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    transition: all 0.1s ease;
+}
+
+.subfolder-row:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.subfolder-icon-input {
+    width: 36px;
+    text-align: center;
+    background: var(--bg-active);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 4px;
+    font-size: 16px;
+    color: var(--text-primary);
+    outline: none;
+    cursor: pointer;
+}
+
+.subfolder-icon-input:focus {
+    border-color: var(--accent);
+}
+
+.subfolder-name {
+    flex: 1;
+    min-width: 80px;
+}
+
+.subfolder-path {
+    flex: 2;
+    min-width: 120px;
+}
+
+.subfolder-shortcut {
+    width: 110px;
+}
+
+.subfolder-actions {
+    display: flex;
+    gap: 2px;
+}
+
+/* Shortcut capture */
+.shortcut-capture {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.shortcut-display {
+    font-size: 12px;
+    color: var(--text-muted);
+    background: var(--bg-active);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.shortcut-capture .input-field {
+    cursor: pointer;
+}
+
+.shortcut-capture .input-field.capturing {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.3);
+}
+
+/* Checkbox */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 6px 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent);
+    cursor: pointer;
+}
+
+/* Radio groups */
+.radio-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.radio-label {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 10px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.12s ease;
+}
+
+.radio-label:hover {
+    background: var(--bg-hover);
+}
+
+.radio-label input[type="radio"] {
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    accent-color: var(--accent);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.radio-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.radio-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.radio-help {
+    font-size: 12px;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+/* Action bar */
+.settings-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+/* Emoji Picker */
+.emoji-picker {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-primary);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+    padding: 10px;
+    width: 260px;
+    max-height: 320px;
+    overflow-y: auto;
+    animation: pickerFadeIn 0.12s ease-out;
+}
+
+@keyframes pickerFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(0.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.emoji-category-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 8px 0 4px 2px;
+}
+
+.emoji-category-label:first-child {
+    margin-top: 0;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+}
+
+.emoji-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.1s ease;
+}
+
+.emoji-btn:hover {
+    background: var(--accent);
+    transform: scale(1.2);
+}
+
+.emoji-btn:active {
+    transform: scale(0.9);
+}
+
+.subfolder-icon-input {
+    cursor: pointer !important;
+}
+
+.subfolder-icon-input:hover {
+    border-color: var(--accent);
+    background: var(--bg-hover);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--bg-active);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--border);
+}
+
+/* ========================================
+   macOS — Minimal native overrides
+   ======================================== */
+
+body.liquid-glass {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.liquid-glass .settings-container {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 10px;
+    margin: 0;
+    height: 100vh;
+}
+
+body.liquid-glass .title-bar {
+    border-bottom-color: rgba(120, 120, 128, 0.2);
+}
+
+body.liquid-glass .input-field {
+    background: rgba(120, 120, 128, 0.12);
+    border: 1px solid rgba(120, 120, 128, 0.2);
+    border-radius: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+body.liquid-glass .input-field:focus {
+    border-color: #007aff;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+body.liquid-glass .btn {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    border-radius: 8px;
+}
+
+body.liquid-glass .btn-primary {
+    background: #007aff;
+}
+
+body.liquid-glass .btn-primary:hover {
+    background: #0066d6;
+}
+
+body.liquid-glass .btn-secondary {
+    background: rgba(120, 120, 128, 0.12);
+    border: 1px solid rgba(120, 120, 128, 0.2);
+}
+
+body.liquid-glass .btn-secondary:hover {
+    background: rgba(120, 120, 128, 0.2);
+}
+
+body.liquid-glass .subfolder-row {
+    background: rgba(120, 120, 128, 0.08);
+    border: 1px solid rgba(120, 120, 128, 0.12);
+    border-radius: 8px;
+}
+
+body.liquid-glass .subfolder-row:hover {
+    border-color: rgba(120, 120, 128, 0.25);
+}
+
+body.liquid-glass .subfolder-icon-input {
+    background: rgba(120, 120, 128, 0.12);
+    border: 1px solid rgba(120, 120, 128, 0.15);
+    border-radius: 6px;
+}
+
+body.liquid-glass .checkbox-label input[type="checkbox"] {
+    accent-color: #007aff;
+}
+
+body.liquid-glass .radio-label {
+    background: rgba(120, 120, 128, 0.08);
+    border: 1px solid rgba(120, 120, 128, 0.12);
+    border-radius: 8px;
+}
+
+body.liquid-glass .radio-label:hover {
+    background: rgba(120, 120, 128, 0.16);
+}
+
+body.liquid-glass .radio-label input[type="radio"] {
+    accent-color: #007aff;
+}
+
+body.liquid-glass .settings-actions {
+    border-top-color: rgba(120, 120, 128, 0.2);
+}
+
+body.liquid-glass .emoji-picker {
+    background: var(--bg-primary);
+    border: 1px solid rgba(120, 120, 128, 0.2);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+body.liquid-glass .emoji-btn:hover {
+    background: #007aff;
+}
+
+body.liquid-glass .btn-danger:hover {
+    color: #ff3b30;
+}
+
+body.liquid-glass .shortcut-capture .input-field.capturing {
+    border-color: #007aff;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}

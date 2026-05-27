@@ -1,0 +1,293 @@
+/* Mini Search Bar Styles */
+:root {
+    --mini-bg: rgba(32, 32, 32, 0.92);
+    --mini-bg-hover: rgba(45, 45, 45, 0.95);
+    --mini-text: #ffffff;
+    --mini-text-muted: rgba(255, 255, 255, 0.5);
+    --mini-accent: #0078d4;
+    --mini-border: rgba(255, 255, 255, 0.12);
+    --mini-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+@media (prefers-color-scheme: light) {
+    :root {
+        --mini-bg: rgba(255, 255, 255, 0.92);
+        --mini-bg-hover: rgba(250, 250, 250, 0.95);
+        --mini-text: #1a1a1a;
+        --mini-text-muted: rgba(0, 0, 0, 0.5);
+        --mini-border: rgba(0, 0, 0, 0.12);
+        --mini-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    }
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: transparent;
+    overflow: hidden;
+    -webkit-app-region: no-drag;
+    user-select: none;
+    height: 100vh;
+}
+
+.mini-container {
+    display: flex;
+    align-items: center;
+    background: var(--mini-bg);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-radius: 8px;
+    border: 1px solid var(--mini-border);
+    box-shadow: var(--mini-shadow);
+    padding: 6px 10px;
+    margin: 4px;
+    gap: 8px;
+    transition: all 0.15s ease;
+}
+
+.mini-container:hover {
+    background: var(--mini-bg-hover);
+}
+
+.drag-handle {
+    cursor: move;
+    -webkit-app-region: drag;
+    color: var(--mini-text-muted);
+    font-size: 12px;
+    padding: 0 4px;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+.drag-handle:hover {
+    opacity: 1;
+}
+
+.pin-btn {
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--mini-text);
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.12s ease;
+    -webkit-app-region: no-drag;
+}
+
+.pin-btn:hover {
+    background: var(--mini-accent);
+    transform: translateY(-1px);
+}
+
+.pin-btn.pinned {
+    background: var(--mini-accent);
+    color: white;
+}
+
+.mini-icon {
+    font-size: 14px;
+    opacity: 0.7;
+}
+
+#miniInput {
+    background: none;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: var(--mini-text);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+    width: 90px;
+    letter-spacing: 0.3px;
+}
+
+#miniInput::placeholder {
+    color: var(--mini-text-muted);
+}
+
+#miniInput:focus {
+    width: 100px;
+}
+
+.mini-status {
+    font-size: 12px;
+    min-width: 16px;
+    text-align: center;
+}
+
+.mini-status.valid {
+    color: #4caf50;
+}
+
+.mini-status.invalid {
+    color: #f44336;
+}
+
+/* Subfolder buttons */
+.mini-buttons {
+    display: none;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+}
+
+.mini-buttons.visible {
+    display: flex;
+    animation: fadeInButtons 0.15s ease-out;
+}
+
+@keyframes fadeInButtons {
+    from { opacity: 0; transform: translateX(-6px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.mini-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.1s ease;
+    -webkit-app-region: no-drag;
+}
+
+.mini-btn:hover {
+    background: var(--mini-accent);
+    transform: scale(1.12);
+}
+
+.mini-btn:active {
+    transform: scale(0.95);
+}
+
+@media (prefers-color-scheme: light) {
+    .mini-btn {
+        background: rgba(0, 0, 0, 0.06);
+    }
+}
+
+/* Animation for entry */
+@keyframes miniSlideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.mini-container {
+    animation: miniSlideUp 0.2s ease-out;
+}
+
+body.docked .mini-container {
+    height: auto;
+    margin: 4px;
+    border-radius: 8px;
+    border-color: var(--mini-border);
+    box-shadow: var(--mini-shadow);
+}
+
+body.docked .drag-handle {
+    -webkit-app-region: no-drag;
+    cursor: default;
+    opacity: 0.25;
+}
+
+body.docked.docked-move-mode .drag-handle {
+    -webkit-app-region: drag;
+    cursor: move;
+    opacity: 1;
+}
+
+body.docked.docked-move-mode .mini-container {
+    border-color: var(--mini-accent);
+    box-shadow: 0 0 0 1px rgba(0, 120, 212, 0.22), var(--mini-shadow);
+}
+
+body.popover .drag-handle {
+    display: none;
+}
+
+body.popover .mini-container {
+    border-radius: 10px;
+    margin: 0;
+    padding: 8px 12px;
+}
+
+.mini-btn:focus-visible,
+.pin-btn:focus-visible,
+#miniInput:focus-visible {
+    outline: 2px solid var(--mini-accent);
+    outline-offset: 2px;
+}
+
+/* ========================================
+   macOS — Minimal native overrides
+   ======================================== */
+
+body.liquid-glass {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.liquid-glass .mini-container {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 10px;
+    margin: 0;
+}
+
+body.liquid-glass #miniInput {
+    font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+body.liquid-glass .mini-btn {
+    background: rgba(120, 120, 128, 0.12);
+    border: none;
+    border-radius: 6px;
+}
+
+body.liquid-glass .pin-btn {
+    background: rgba(120, 120, 128, 0.12);
+}
+
+body.liquid-glass .pin-btn:hover,
+body.liquid-glass .pin-btn.pinned {
+    background: #007aff;
+}
+
+body.liquid-glass .mini-btn:hover {
+    background: #007aff;
+    transform: scale(1.08);
+}
+
+body.liquid-glass .mini-status.valid {
+    color: #34c759;
+}
+
+body.liquid-glass .mini-status.invalid {
+    color: #ff3b30;
+}

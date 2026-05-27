@@ -1,0 +1,42 @@
+{
+  "racine": "",
+  "sousDossiers": [
+    {
+      "nom": "Dossier principal",
+      "chemin": "",
+      "raccourci": "Enter",
+      "icone": "📁"
+    },
+    {
+      "nom": "Plans d'exécution",
+      "chemin": "Plans\\Plan d'exécution",
+      "raccourci": "Ctrl+Enter",
+      "icone": "📐"
+    },
+    {
+      "nom": "Fournisseurs",
+      "chemin": "Fournisseurs",
+      "raccourci": "Shift+Enter",
+      "icone": "🏭"
+    },
+    {
+      "nom": "Devis",
+      "chemin": "Devis",
+      "raccourci": null,
+      "icone": "💰"
+    }
+  ],
+  "raccourciGlobal": "CommandOrControl+Shift+P",
+  "autoStart": false,
+  "integrationMode": "floating",
+  "openBehavior": "newTab",
+  "openInNewTab": true,
+  "reuseExplorerWindow": false,
+  "miniBar": {
+    "enabled": true,
+    "position": null,
+    "dockedPosition": null,
+    "dockedUseCustomPosition": false,
+    "lastVisibleIntegrationMode": "floating"
+  }
+}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+  <title>Project Folder Launcher</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <main class="container" role="dialog" aria-label="Recherche de projet">
+    <div class="search-box">
+      <div class="search-input-wrapper">
+        <span class="search-icon" aria-hidden="true">🔍</span>
+        <input type="text" id="projectInput" aria-label="Numéro de projet" placeholder="Numéro de projet (ex: 4889)"
+          autocomplete="off" spellcheck="false" maxlength="9">
+        <span class="shortcut-hint" aria-label="Raccourci global">Ctrl+Shift+P</span>
+      </div>
+    </div>
+
+    <div class="validation-message" id="validationMessage" role="status" aria-live="polite"></div>
+
+    <section class="subfolders-menu" id="subfoldersMenu" aria-label="Sous-dossiers disponibles">
+      <div class="menu-header">Ouvrir dans :</div>
+      <div class="menu-items" id="menuItems" role="listbox" aria-label="Choisir un sous-dossier"></div>
+    </section>
+
+    <div class="footer">
+      <span class="hint">Entrée = ouvrir • Échap = fermer</span>
+    </div>
+  </main>
+
+  <script src="renderer.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,348 @@
+/* CSS Variables for theming */
+:root {
+  --bg-primary: rgba(32, 32, 32, 0.95);
+  --bg-secondary: rgba(45, 45, 45, 0.9);
+  --bg-hover: rgba(60, 60, 60, 0.9);
+  --bg-active: rgba(80, 80, 80, 0.9);
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.7);
+  --text-muted: rgba(255, 255, 255, 0.4);
+  --accent: #0078d4;
+  --accent-hover: #1a86d9;
+  --border: rgba(255, 255, 255, 0.1);
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --radius: 12px;
+  --radius-sm: 8px;
+}
+
+/* Light theme detection */
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg-primary: rgba(255, 255, 255, 0.95);
+    --bg-secondary: rgba(245, 245, 245, 0.9);
+    --bg-hover: rgba(235, 235, 235, 0.9);
+    --bg-active: rgba(220, 220, 220, 0.9);
+    --text-primary: #1a1a1a;
+    --text-secondary: rgba(0, 0, 0, 0.7);
+    --text-muted: rgba(0, 0, 0, 0.4);
+    --border: rgba(0, 0, 0, 0.1);
+    --shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  }
+}
+
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Body with transparency for blur effect */
+body {
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: transparent;
+  color: var(--text-primary);
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+  user-select: none;
+}
+
+/* Main container */
+.container {
+  background: var(--bg-primary);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin: 8px;
+  animation: slideIn 0.15s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Search box */
+.search-box {
+  margin-bottom: 12px;
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  transition: all 0.2s ease;
+}
+
+.search-input-wrapper:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+}
+
+.search-icon {
+  font-size: 16px;
+  margin-right: 12px;
+  opacity: 0.6;
+}
+
+#projectInput {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  color: var(--text-primary);
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  letter-spacing: 0.5px;
+}
+
+#projectInput::placeholder {
+  color: var(--text-muted);
+}
+
+.shortcut-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-active);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Validation message */
+.validation-message {
+  padding: 0 4px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  min-height: 20px;
+  transition: all 0.2s ease;
+}
+
+.validation-message.valid {
+  color: #4caf50;
+}
+
+.validation-message.invalid {
+  color: #f44336;
+}
+
+.validation-message.info {
+  color: var(--text-secondary);
+}
+
+/* Subfolders menu */
+.subfolders-menu {
+  display: none;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.subfolders-menu.visible {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.menu-header {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+  padding-left: 4px;
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border: 1px solid transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.menu-item:hover {
+  background: var(--bg-hover);
+  border-color: var(--border);
+}
+
+.menu-item.selected {
+  background: var(--accent);
+  color: white;
+}
+
+.menu-item:focus-visible,
+#projectInput:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.menu-item.selected .item-shortcut {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.item-icon {
+  font-size: 18px;
+  margin-right: 12px;
+  width: 24px;
+  text-align: center;
+}
+
+.item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.item-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.item-path {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.menu-item.selected .item-path {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.item-shortcut {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-active);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+/* Footer */
+.footer {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-active);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border);
+}
+
+/* ========================================
+   macOS — Minimal native overrides
+   ======================================== */
+
+body.liquid-glass {
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+body.liquid-glass .container {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  margin: 0;
+  border-radius: 10px;
+}
+
+body.liquid-glass #projectInput {
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
+body.liquid-glass .search-input-wrapper {
+  background: rgba(120, 120, 128, 0.12);
+  border: 1px solid rgba(120, 120, 128, 0.2);
+  border-radius: 10px;
+}
+
+body.liquid-glass .search-input-wrapper:focus-within {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+
+body.liquid-glass .shortcut-hint {
+  background: rgba(120, 120, 128, 0.12);
+  border-radius: 5px;
+}
+
+body.liquid-glass .menu-item {
+  background: rgba(120, 120, 128, 0.08);
+  border: none;
+  border-radius: 8px;
+}
+
+body.liquid-glass .menu-item:hover {
+  background: rgba(120, 120, 128, 0.18);
+}
+
+body.liquid-glass .menu-item.selected {
+  background: #007aff;
+}
+
+body.liquid-glass .item-shortcut {
+  background: rgba(120, 120, 128, 0.12);
+  border-radius: 5px;
+}
+
+body.liquid-glass .footer {
+  border-top-color: rgba(120, 120, 128, 0.2);
+}
+
+body.liquid-glass .validation-message.valid {
+  color: #34c759;
+}
+
+body.liquid-glass .validation-message.invalid {
+  color: #ff3b30;
+}

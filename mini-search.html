@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+    <title>Mini Search</title>
+    <link rel="stylesheet" href="mini-search.css">
+</head>
+
+<body>
+    <main class="mini-container" id="miniContainer" role="search" aria-label="Recherche rapide de projet">
+        <div class="drag-handle" id="dragHandle" aria-hidden="true">⋮⋮</div>
+        <button class="pin-btn" id="pinBtn" type="button" aria-label="Épingler la mini-barre" title="Épingler">📌</button>
+        <span class="mini-icon" aria-hidden="true">🔍</span>
+        <input type="text" id="miniInput" aria-label="Numéro de projet" placeholder="4889" autocomplete="off"
+            spellcheck="false" maxlength="9">
+        <div class="mini-status" id="miniStatus" role="status" aria-live="polite"></div>
+        <div class="mini-buttons" id="miniButtons" aria-label="Ouvrir dans un sous-dossier"></div>
+    </main>
+
+    <script src="mini-renderer.js"></script>
+</body>
+
+</html>

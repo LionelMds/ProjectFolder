@@ -1,0 +1,91 @@
+{
+  "name": "project-folder-launcher",
+  "version": "1.0.0",
+  "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false",
+    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "build:all": "electron-builder --win --mac"
+  },
+  "keywords": [
+    "electron",
+    "project",
+    "launcher",
+    "windows",
+    "macos"
+  ],
+  "author": "Lionel",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.balz.project-folder-launcher",
+    "productName": "Project Folder Launcher",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "**/*",
+      "!dist/**",
+      "!config.json",
+      "!*.lnk",
+      "!.claude/**",
+      "!node_modules/**/README.md",
+      "!node_modules/**/CHANGELOG.md"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.icns",
+      "category": "public.app-category.utilities"
+    },
+    "dmg": {
+      "title": "Project Folder Launcher",
+      "artifactName": "ProjectFolderLauncher-${version}-mac.dmg",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Project Folder Launcher",
+      "runAfterFinish": true,
+      "artifactName": "ProjectFolderLauncher-Setup-${version}.exe"
+    }
+  }
+}
