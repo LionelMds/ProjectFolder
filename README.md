@@ -76,6 +76,25 @@ npm run release:mac
 
 Le build macOS génère un DMG et un ZIP, plus `latest-mac.yml`, nécessaires aux mises à jour automatiques.
 
+## Publication macOS depuis GitHub Actions
+
+Le workflow `Publish release assets` permet de produire les artefacts macOS depuis un runner macOS GitHub, puis de les attacher automatiquement à la release correspondant à la version de `package.json`.
+
+Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
+
+- `CSC_LINK` : certificat Developer ID Application exporté en `.p12` puis encodé en base64.
+- `CSC_KEY_PASSWORD` : mot de passe du certificat `.p12`.
+- `APPLE_ID` : identifiant Apple Developer.
+- `APPLE_APP_SPECIFIC_PASSWORD` : mot de passe spécifique à l'app.
+- `APPLE_TEAM_ID` : Team ID Apple Developer.
+
+Pour ajouter le DMG macOS à une release existante, lancer le workflow manuellement avec :
+
+- `ref` : `main`
+- `platform` : `macos`
+
+Le workflow publie les DMG x64/arm64, les ZIP x64/arm64 et `latest-mac.yml`.
+
 ## Configuration
 
 Au premier lancement, si aucun dossier racine n'est configuré, la fenêtre Paramètres s'ouvre automatiquement.

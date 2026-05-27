@@ -60,6 +60,7 @@
       "icon": "assets/icon.png"
     },
     "mac": {
+      "artifactName": "ProjectFolderLauncher-${version}-${arch}-mac.${ext}",
       "target": [
         {
           "target": "dmg",
@@ -81,7 +82,7 @@
     },
     "dmg": {
       "title": "Project Folder Launcher",
-      "artifactName": "ProjectFolderLauncher-${version}-mac.dmg",
+      "artifactName": "ProjectFolderLauncher-${version}-${arch}-mac.dmg",
       "contents": [
         {
           "x": 130,
