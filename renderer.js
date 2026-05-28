@@ -49,9 +49,9 @@ function formatShortcut(shortcut) {
 }
 
 function formatRecentName(recent) {
-    const projectLabel = recent.projectNumber || recent.digits || 'Dossier';
-    const subfolderLabel = recent.subfolderName || 'Dossier principal';
-    return `${projectLabel} - ${subfolderLabel}`;
+    const folderPath = String(recent.folderPath || '').trim();
+    const folderName = folderPath.split(/[\\/]+/).filter(Boolean).pop();
+    return folderName || recent.subfolderName || recent.projectNumber || 'Dossier récent';
 }
 
 function getRecentSearchText(recent) {
@@ -100,21 +100,12 @@ function renderRecentItems(query) {
         const name = document.createElement('span');
         name.className = 'recent-name';
         name.textContent = formatRecentName(recent);
-
-        const pathLabel = document.createElement('span');
-        pathLabel.className = 'recent-path';
-        pathLabel.textContent = recent.folderPath || recent.subfolderPath || 'Dossier récent';
+        item.title = recent.folderPath || formatRecentName(recent);
 
         content.appendChild(name);
-        content.appendChild(pathLabel);
 
         item.appendChild(icon);
         item.appendChild(content);
-
-        const projectBadge = document.createElement('span');
-        projectBadge.className = 'recent-project';
-        projectBadge.textContent = recent.digits || (recent.projectNumber || '').slice(-4) || '';
-        item.appendChild(projectBadge);
 
         item.addEventListener('click', () => openRecentFolder(index));
         item.addEventListener('mouseenter', () => setSelectedRecentIndex(index));

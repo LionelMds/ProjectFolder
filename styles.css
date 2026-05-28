@@ -216,8 +216,7 @@ body {
   outline-offset: 2px;
 }
 
-.menu-item.selected .item-shortcut,
-.recent-item.selected .recent-project {
+.menu-item.selected .item-shortcut {
   background: rgba(255, 255, 255, 0.2);
   color: white;
 }
@@ -246,8 +245,7 @@ body {
   white-space: nowrap;
 }
 
-.item-path,
-.recent-path {
+.item-path {
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 2px;
@@ -256,13 +254,11 @@ body {
   white-space: nowrap;
 }
 
-.menu-item.selected .item-path,
-.recent-item.selected .recent-path {
+.menu-item.selected .item-path {
   color: rgba(255, 255, 255, 0.7);
 }
 
-.item-shortcut,
-.recent-project {
+.item-shortcut {
   font-size: 11px;
   color: var(--text-muted);
   background: var(--bg-active);
@@ -374,8 +370,7 @@ body.liquid-glass .recent-item.selected {
   background: #007aff;
 }
 
-body.liquid-glass .item-shortcut,
-body.liquid-glass .recent-project {
+body.liquid-glass .item-shortcut {
   background: rgba(120, 120, 128, 0.12);
   border-radius: 5px;
 }

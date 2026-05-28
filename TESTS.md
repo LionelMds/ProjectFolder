@@ -11,14 +11,15 @@
 
 1. Ouvrir la recherche avec `Ctrl+Shift+P` sur Windows ou `Cmd+Shift+P` sur macOS.
 2. Vérifier que la liste des dossiers récemment ouverts apparaît si des dossiers ont déjà été ouverts.
-3. Taper un, deux puis trois chiffres et vérifier que les récents sont filtrés.
-4. Naviguer dans les récents avec `↑`, `↓` et `Tab`, puis ouvrir un récent avec `Enter`.
-5. Taper quatre chiffres correspondant à un projet existant, par exemple `4889`.
-6. Vérifier que le message de validation devient vert et que la liste des sous-dossiers remplace les récents.
-7. Naviguer avec `↑`, `↓` et `Tab`.
-8. Valider avec `Enter`, `Ctrl+Enter` et `Shift+Enter`.
-9. Rouvrir la recherche et vérifier que le dossier ouvert vient en haut des récents.
-10. Vérifier que `Escape` ferme la fenêtre sans ouvrir de dossier.
+3. Vérifier que chaque récent affiche seulement le nom du dossier, sans chemin ni badge.
+4. Taper un, deux puis trois chiffres et vérifier que les récents sont filtrés.
+5. Naviguer dans les récents avec `↑`, `↓` et `Tab`, puis ouvrir un récent avec `Enter`.
+6. Taper quatre chiffres correspondant à un projet existant, par exemple `4889`.
+7. Vérifier que le message de validation devient vert et que la liste des sous-dossiers remplace les récents.
+8. Naviguer avec `↑`, `↓` et `Tab`.
+9. Valider avec `Enter`, `Ctrl+Enter` et `Shift+Enter`.
+10. Rouvrir la recherche et vérifier que le dossier ouvert vient en haut des récents.
+11. Vérifier que `Escape` ferme la fenêtre sans ouvrir de dossier.
 
 ## Mini-barre flottante
 
