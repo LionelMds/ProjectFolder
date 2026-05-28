@@ -58,6 +58,15 @@ function isWindows() {
 }
 
 /**
+ * Returns true when auto-updates are enabled for this build.
+ * macOS updates are disabled until the app is signed and notarized.
+ * @returns {boolean}
+ */
+function supportsAutoUpdates() {
+  return isWindows();
+}
+
+/**
  * Returns true when Windows Explorer tabs are available.
  * Explorer tabs shipped broadly with Windows 11 22H2, build 22621.
  * @returns {boolean}
@@ -295,10 +304,16 @@ function notifyUpdateAvailable(info) {
  * Configures electron-updater event handlers.
  */
 function configureAutoUpdater() {
+  if (!supportsAutoUpdates()) {
+    logEvent('Auto-updater disabled for this platform', { platform: process.platform });
+    return;
+  }
+
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
+  autoUpdater.disableDifferentialDownload = true;
 
   autoUpdater.on('checking-for-update', () => {
     setUpdateState({
@@ -385,6 +400,21 @@ function configureAutoUpdater() {
 async function checkForUpdates(manual = false) {
   setUpdateState({ manual });
 
+  if (!supportsAutoUpdates()) {
+    setUpdateState({
+      status: 'not-available',
+      message: 'Les mises à jour automatiques macOS sont désactivées sur ce build temporaire non signé.',
+      error: null,
+      percent: 0
+    });
+
+    if (manual) {
+      showUpdateWindow();
+    }
+
+    return { success: true, disabled: true };
+  }
+
   if (!app.isPackaged) {
     setUpdateState({
       status: 'not-available',
@@ -420,6 +450,11 @@ async function checkForUpdates(manual = false) {
  * Starts downloading the update and installs it when ready.
  */
 async function startUpdateDownload() {
+  if (!supportsAutoUpdates()) {
+    await checkForUpdates(true);
+    return { success: true, disabled: true };
+  }
+
   if (updateState.status === 'ready') {
     installDownloadedUpdate();
     return { success: true };
@@ -445,6 +480,15 @@ async function startUpdateDownload() {
  * Installs the downloaded update and restarts the app.
  */
 function installDownloadedUpdate() {
+  if (!supportsAutoUpdates()) {
+    setUpdateState({
+      status: 'error',
+      message: 'Installation automatique indisponible sur ce build.',
+      error: null
+    });
+    return;
+  }
+
   if (!app.isPackaged) {
     setUpdateState({
       status: 'error',
@@ -469,6 +513,10 @@ function installDownloadedUpdate() {
  * Schedules background update checks.
  */
 function scheduleUpdateChecks() {
+  if (!supportsAutoUpdates()) {
+    return;
+  }
+
   if (updateCheckTimer) {
     clearInterval(updateCheckTimer);
   }

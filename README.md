@@ -50,7 +50,7 @@ $env:GH_TOKEN="votre_token_github"
 npm run release:win
 ```
 
-Le build publie l'installateur, le blockmap et `latest.yml`. Les versions installées vérifient ensuite les mises à jour automatiquement et affichent une fenêtre avec progression avant installation.
+Le build publie l'installateur et `latest.yml`. Les versions installées vérifient ensuite les mises à jour automatiquement et affichent une fenêtre avec progression avant installation. Les mises à jour différentielles sont désactivées pour garder les releases lisibles, donc l'installateur complet est téléchargé.
 
 ## Build macOS
 
@@ -61,20 +61,15 @@ npm install
 npm run build:mac
 ```
 
-## Publication macOS avec mise à jour automatique
+## Publication macOS temporaire
 
-macOS exige une application signée pour que l'auto-update fonctionne correctement. Préparer les variables de signature/notarisation sur le Mac de build, puis publier :
+Sans compte Apple Developer, la release macOS est un DMG temporaire non signé. macOS peut afficher un avertissement Gatekeeper, voire proposer de placer l'app à la corbeille après téléchargement. Dans ce cas, retirer l'attribut de quarantaine puis relancer :
 
 ```bash
-export GH_TOKEN="votre_token_github"
-export CSC_NAME="Developer ID Application: ..."
-export APPLE_ID="..."
-export APPLE_APP_SPECIFIC_PASSWORD="..."
-export APPLE_TEAM_ID="..."
-npm run release:mac
+xattr -dr com.apple.quarantine "/Applications/Project Folder Launcher.app"
 ```
 
-Le build macOS génère un DMG et un ZIP, plus `latest-mac.yml`, nécessaires aux mises à jour automatiques.
+Le build macOS temporaire publie uniquement les DMG x64 et arm64. L'auto-update macOS reste désactivé tant que l'application n'est pas signée/notarisée.
 
 ## Publication macOS depuis GitHub Actions
 
@@ -94,9 +89,9 @@ Pour ajouter le DMG macOS à une release existante, lancer le workflow manuellem
 - `platform` : `macos`
 - `macos_signing` : `unsigned` pour un DMG temporaire non signé, ou `signed` quand les secrets Apple Developer sont configurés.
 
-Le workflow publie les DMG x64/arm64, les ZIP x64/arm64 et `latest-mac.yml`.
+Le workflow publie uniquement les DMG x64/arm64 pour garder la release simple.
 
-Un build `unsigned` est utile pour tester et distribuer provisoirement un DMG, mais macOS affichera des avertissements Gatekeeper et l'auto-update macOS ne doit pas être considéré comme fiable tant que l'app n'est pas signée/notarisée.
+Un build `unsigned` est utile pour tester et distribuer provisoirement un DMG, mais macOS affichera des avertissements Gatekeeper et l'auto-update macOS reste désactivé tant que l'app n'est pas signée/notarisée.
 
 ## Configuration
 

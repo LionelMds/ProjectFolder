@@ -124,9 +124,6 @@
 
 ## Mises à jour automatiques macOS
 
-1. Signer et notariser le build macOS.
-2. Publier une version avec `npm run release:mac`.
-3. Installer cette version depuis le DMG.
-4. Publier une version supérieure.
-5. Lancer l'ancienne version installée.
-6. Vérifier la détection, le téléchargement avec progression, l'installation et le redémarrage.
+1. Sur un build temporaire non signé, ouvrir le menu tray et lancer "Vérifier les mises à jour".
+2. Vérifier que l'application indique que les mises à jour automatiques macOS sont désactivées sur ce build.
+3. Après obtention d'un compte Apple Developer, réactiver les artefacts ZIP/`latest-mac.yml`, signer/notariser le build, puis tester la détection, le téléchargement avec progression, l'installation et le redémarrage.

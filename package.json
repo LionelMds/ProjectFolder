@@ -1,15 +1,16 @@
 {
   "name": "project-folder-launcher",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false",
-    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
     "build:all": "electron-builder --win --mac",
     "release:win": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --publish always --config.win.signAndEditExecutable=false",
-    "release:mac": "electron-builder --mac --publish always"
+    "release:mac": "electron-builder --mac dmg --publish always",
+    "release:mac:updater": "electron-builder --mac dmg zip --publish always"
   },
   "keywords": [
     "electron",
@@ -64,13 +65,6 @@
       "target": [
         {
           "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        },
-        {
-          "target": "zip",
           "arch": [
             "x64",
             "arm64"
