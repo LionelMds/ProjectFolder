@@ -4,6 +4,7 @@ const api = {
     getConfig: () => ipcRenderer.invoke('get-config'),
     openProjectFolder: (projectNumber, subfolderIndex) =>
         ipcRenderer.invoke('open-project-folder', projectNumber, subfolderIndex),
+    openRecentFolder: (recentId) => ipcRenderer.invoke('open-recent-folder', recentId),
     hideWindow: () => ipcRenderer.invoke('hide-window'),
     miniBarFocused: () => ipcRenderer.invoke('mini-bar-focused'),
     resizeMiniBar: (width) => ipcRenderer.invoke('resize-mini-bar', width),

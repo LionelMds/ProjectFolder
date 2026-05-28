@@ -32,6 +32,7 @@
   "openBehavior": "newTab",
   "openInNewTab": true,
   "reuseExplorerWindow": false,
+  "recentFolders": [],
   "miniBar": {
     "enabled": true,
     "position": null,

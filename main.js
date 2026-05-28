@@ -2,6 +2,7 @@ const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain, shell, Notifica
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const crypto = require('crypto');
 const { execFile } = require('child_process');
 const { autoUpdater } = require('electron-updater');
 
@@ -15,6 +16,7 @@ const MINI_EDGE_PADDING = 8;
 const VALID_INTEGRATION_MODES = ['floating', 'docked', 'hidden'];
 const VALID_OPEN_BEHAVIORS = ['newWindow', 'newTab', 'reuseWindow'];
 const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const RECENT_FOLDERS_LIMIT = 10;
 
 let mainWindow = null;
 let miniWindow = null;
@@ -553,6 +555,7 @@ function createDefaultConfig() {
     openBehavior: 'newTab',
     openInNewTab: true,
     reuseExplorerWindow: false,
+    recentFolders: [],
     miniBar: {
       enabled: true,
       position: null,
@@ -613,6 +616,7 @@ function migrateConfig(rawConfig) {
   migrated.miniBar.enabled = migrated.integrationMode !== 'hidden';
   migrated.openInNewTab = migrated.openBehavior === 'newTab';
   migrated.reuseExplorerWindow = migrated.openBehavior === 'reuseWindow';
+  migrated.recentFolders = normalizeRecentFolders(rawConfig.recentFolders);
 
   return migrated;
 }
@@ -660,6 +664,108 @@ function saveConfig() {
   } catch (error) {
     notifyError('Erreur de sauvegarde de la configuration', error);
   }
+}
+
+/**
+ * Builds a stable id for a recent folder entry.
+ * @param {string} folderPath
+ * @returns {string}
+ */
+function createRecentFolderId(folderPath) {
+  return crypto
+    .createHash('sha1')
+    .update(path.normalize(String(folderPath || '')).toLowerCase())
+    .digest('hex')
+    .slice(0, 16);
+}
+
+/**
+ * Normalizes one recent folder entry.
+ * @param {object} entry
+ * @returns {object|null}
+ */
+function normalizeRecentFolder(entry) {
+  if (!entry || typeof entry !== 'object') {
+    return null;
+  }
+
+  const folderPath = String(entry.folderPath || '').trim();
+
+  if (!folderPath) {
+    return null;
+  }
+
+  const projectNumber = String(entry.projectNumber || '').trim();
+  const subfolderName = String(entry.subfolderName || '').trim();
+  const subfolderPath = String(entry.subfolderPath || '').trim();
+  const openedAt = Number(entry.openedAt || Date.now());
+
+  return {
+    id: String(entry.id || createRecentFolderId(folderPath)),
+    projectNumber,
+    digits: String(entry.digits || projectNumber.slice(-4)).trim(),
+    subfolderName,
+    subfolderPath,
+    folderPath,
+    openedAt: Number.isFinite(openedAt) ? openedAt : Date.now()
+  };
+}
+
+/**
+ * Normalizes, de-duplicates and sorts recent folders.
+ * @param {Array<object>} entries
+ * @returns {Array<object>}
+ */
+function normalizeRecentFolders(entries) {
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  const deduped = new Map();
+
+  for (const entry of entries) {
+    const normalized = normalizeRecentFolder(entry);
+
+    if (!normalized) {
+      continue;
+    }
+
+    const existing = deduped.get(normalized.id);
+
+    if (!existing || normalized.openedAt > existing.openedAt) {
+      deduped.set(normalized.id, normalized);
+    }
+  }
+
+  return Array.from(deduped.values())
+    .sort((a, b) => b.openedAt - a.openedAt)
+    .slice(0, RECENT_FOLDERS_LIMIT);
+}
+
+/**
+ * Stores a folder in the recent list.
+ * @param {object} entry
+ */
+function rememberRecentFolder(entry) {
+  const normalized = normalizeRecentFolder({
+    ...entry,
+    openedAt: Date.now()
+  });
+
+  if (!normalized) {
+    return;
+  }
+
+  const remaining = Array.isArray(config.recentFolders)
+    ? config.recentFolders.filter(recent => recent && recent.id !== normalized.id)
+    : [];
+
+  config.recentFolders = normalizeRecentFolders([normalized, ...remaining]);
+  saveConfig();
+  logEvent('Recent folder stored', {
+    projectNumber: normalized.projectNumber,
+    folderPath: normalized.folderPath
+  });
 }
 
 /**
@@ -1915,6 +2021,38 @@ function registerIpcHandlers() {
     const result = await openFolder(folderPath);
 
     if (result.success) {
+      rememberRecentFolder({
+        projectNumber,
+        digits: projectNumber.slice(-4),
+        subfolderName: subfolder.nom || 'Dossier principal',
+        subfolderPath: subfolder.chemin || '',
+        folderPath
+      });
+      hideWindow();
+
+      if (isMac() && config.integrationMode === 'docked' && miniWindow && !miniWindow.isDestroyed()) {
+        miniWindow.hide();
+      }
+    } else {
+      notifyError('Ouverture impossible', result.error);
+    }
+
+    return result;
+  });
+
+  registerIpcHandler('open-recent-folder', async (event, recentId) => {
+    const recent = Array.isArray(config.recentFolders)
+      ? config.recentFolders.find(item => item && item.id === String(recentId || ''))
+      : null;
+
+    if (!recent) {
+      return { success: false, error: 'Dossier récent introuvable' };
+    }
+
+    const result = await openFolder(recent.folderPath);
+
+    if (result.success) {
+      rememberRecentFolder(recent);
       hideWindow();
 
       if (isMac() && config.integrationMode === 'docked' && miniWindow && !miniWindow.isDestroyed()) {

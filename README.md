@@ -19,6 +19,7 @@ Tapez `4889` et l'application cherche automatiquement le premier dossier `YYYY-4
 ## Fonctionnalités
 
 - Recherche rapide via raccourci global `Ctrl+Shift+P` ou `Cmd+Shift+P` sur macOS.
+- Liste des dossiers récemment ouverts, filtrée pendant la saisie avant les 4 chiffres.
 - Mini-barre flottante avec bouton `📌` pour l'épingler sur la barre des tâches Windows.
 - Menu tray Windows et menu bar macOS.
 - Sous-dossiers configurables avec nom, chemin, raccourci et emoji.
