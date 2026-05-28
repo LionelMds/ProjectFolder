@@ -9,7 +9,7 @@
     "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
     "build:all": "electron-builder --win --mac",
     "release:win": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --publish always --config.win.signAndEditExecutable=false",
-    "release:mac": "electron-builder --mac dmg --publish always",
+    "release:mac": "electron-builder --mac --publish never",
     "release:mac:updater": "electron-builder --mac dmg zip --publish always"
   },
   "keywords": [
