@@ -11,7 +11,7 @@
 
 1. Ouvrir la recherche avec `Ctrl+Shift+P` sur Windows ou `Cmd+Shift+P` sur macOS.
 2. Vérifier que la liste des dossiers récemment ouverts apparaît si des dossiers ont déjà été ouverts.
-3. Vérifier que chaque récent affiche seulement le nom du dossier, sans chemin ni badge.
+3. Vérifier que chaque récent affiche toujours le numéro `20XX-XXXX`, avec le sous-dossier ajouté seulement si un sous-dossier a été ouvert.
 4. Taper un, deux puis trois chiffres et vérifier que les récents sont filtrés.
 5. Naviguer dans les récents avec `↑`, `↓` et `Tab`, puis ouvrir un récent avec `Enter`.
 6. Taper quatre chiffres correspondant à un projet existant, par exemple `4889`.

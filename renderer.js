@@ -49,9 +49,21 @@ function formatShortcut(shortcut) {
 }
 
 function formatRecentName(recent) {
+    const projectLabel = String(recent.projectNumber || '').trim();
+    const subfolderName = String(recent.subfolderName || '').trim();
+    const subfolderPath = String(recent.subfolderPath || '').trim();
+    const isProjectRoot = !subfolderPath || subfolderName.toLowerCase() === 'dossier principal';
+
+    if (projectLabel && !isProjectRoot && subfolderName) {
+        return `${projectLabel} - ${subfolderName}`;
+    }
+
+    if (projectLabel) {
+        return projectLabel;
+    }
+
     const folderPath = String(recent.folderPath || '').trim();
-    const folderName = folderPath.split(/[\\/]+/).filter(Boolean).pop();
-    return folderName || recent.subfolderName || recent.projectNumber || 'Dossier récent';
+    return folderPath.split(/[\\/]+/).filter(Boolean).pop() || 'Dossier récent';
 }
 
 function getRecentSearchText(recent) {
