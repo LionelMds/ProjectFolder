@@ -62,19 +62,9 @@ npm install
 npm run build:mac
 ```
 
-## Publication macOS temporaire
+## Publication macOS signée avec mise à jour automatique
 
-Sans compte Apple Developer, la release macOS est un DMG temporaire non signé. macOS peut afficher un avertissement Gatekeeper, voire proposer de placer l'app à la corbeille après téléchargement. Dans ce cas, retirer l'attribut de quarantaine puis relancer :
-
-```bash
-xattr -dr com.apple.quarantine "/Applications/Project Folder Launcher.app"
-```
-
-Le build macOS temporaire publie uniquement les DMG x64 et arm64. L'auto-update macOS reste désactivé tant que l'application n'est pas signée/notarisée.
-
-## Publication macOS depuis GitHub Actions
-
-Le workflow `Publish release assets` permet de produire les artefacts macOS depuis un runner macOS GitHub, puis de les attacher automatiquement à la release correspondant à la version de `package.json`.
+Les builds macOS de production sont signés et notarisés via GitHub Actions. Le workflow publie les DMG x64/arm64 pour l'installation manuelle, les ZIP x64/arm64 utilisés par `electron-updater`, et `latest-mac.yml` pour la détection des mises à jour.
 
 Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
 
@@ -84,15 +74,16 @@ Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
 - `APPLE_APP_SPECIFIC_PASSWORD` : mot de passe spécifique à l'app.
 - `APPLE_TEAM_ID` : Team ID Apple Developer.
 
-Pour ajouter le DMG macOS à une release existante, lancer le workflow manuellement avec :
+Pour publier les artefacts macOS signés/notarisés :
 
+- `Actions` > `Publish release assets` > `Run workflow`
 - `ref` : `main`
 - `platform` : `macos`
-- `macos_signing` : `unsigned` pour un DMG temporaire non signé, ou `signed` quand les secrets Apple Developer sont configurés.
+- `macos_signing` : `signed`
 
-Le workflow publie uniquement les DMG x64/arm64 pour garder la release simple.
+## Publication macOS temporaire non signée
 
-Un build `unsigned` est utile pour tester et distribuer provisoirement un DMG, mais macOS affichera des avertissements Gatekeeper et l'auto-update macOS reste désactivé tant que l'app n'est pas signée/notarisée.
+Le mode `macos_signing=unsigned` reste disponible pour générer uniquement des DMG de test. Ces builds ne sont pas adaptés à une distribution publique et peuvent déclencher Gatekeeper.
 
 ## Configuration
 

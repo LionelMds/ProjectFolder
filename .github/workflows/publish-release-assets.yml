@@ -55,7 +55,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
   macos:
-    name: macOS DMG assets
+    name: macOS release assets
     if: ${{ inputs.platform == 'macos' || inputs.platform == 'all' }}
     runs-on: macos-14
 
@@ -97,12 +97,12 @@ jobs:
 
       - name: Publish temporary unsigned macOS DMG assets
         if: ${{ inputs.macos_signing == 'unsigned' }}
-        run: npm run release:mac
+        run: npm run build:mac
         env:
           GH_TOKEN: ${{ github.token }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Publish signed macOS DMG assets
+      - name: Build signed and notarized macOS updater assets
         if: ${{ inputs.macos_signing == 'signed' }}
         run: npm run release:mac
         env:
@@ -113,12 +113,13 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Attach macOS DMG assets to the existing release
+      - name: Attach macOS assets to the existing release
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
+            const signingMode = '${{ inputs.macos_signing }}';
 
             const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             const tag = `v${packageJson.version}`;
@@ -130,11 +131,16 @@ jobs:
 
             const distDir = path.join(process.cwd(), 'dist');
             const assets = fs.readdirSync(distDir)
-              .filter((fileName) => /^ProjectFolderLauncher-.+-mac\.dmg$/.test(fileName))
+              .filter((fileName) => {
+                const isDmg = /^ProjectFolderLauncher-.+-mac\.dmg$/.test(fileName);
+                const isZip = /^ProjectFolderLauncher-.+-mac\.zip$/.test(fileName);
+                const isMacUpdaterMetadata = fileName === 'latest-mac.yml';
+                return isDmg || (signingMode === 'signed' && (isZip || isMacUpdaterMetadata));
+              })
               .sort();
 
             if (assets.length === 0) {
-              core.setFailed('No macOS DMG assets were generated in dist/.');
+              core.setFailed('No macOS assets were generated in dist/.');
               return;
             }
 

@@ -65,7 +65,7 @@ function isWindows() {
  * @returns {boolean}
  */
 function supportsAutoUpdates() {
-  return isWindows();
+  return isWindows() || isMac();
 }
 
 /**
@@ -405,7 +405,7 @@ async function checkForUpdates(manual = false) {
   if (!supportsAutoUpdates()) {
     setUpdateState({
       status: 'not-available',
-      message: 'Les mises à jour automatiques macOS sont désactivées sur ce build temporaire non signé.',
+      message: 'Les mises à jour automatiques ne sont pas disponibles sur cette plateforme.',
       error: null,
       percent: 0
     });
