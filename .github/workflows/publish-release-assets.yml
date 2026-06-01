@@ -123,18 +123,125 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
-      - name: Build signed and notarized macOS updater assets
+      - name: Build signed macOS app
         if: ${{ inputs.macos_signing == 'signed' }}
-        timeout-minutes: 120
-        run: npx electron-builder --mac --publish never -c.mac.notarize.teamId="$APPLE_TEAM_ID"
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          npx electron-builder --mac dir --universal --publish never -c.mac.notarize=false
+          app_path="$(find dist -maxdepth 3 -name 'Project Folder Launcher.app' -type d | head -n 1)"
+          if [ -z "$app_path" ]; then
+            echo "::error::Signed .app bundle was not generated."
+            find dist -maxdepth 4 -print
+            exit 1
+          fi
+          echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
+          echo "Signed app bundle: $app_path"
         env:
-          DEBUG: electron-notarize*,@electron/notarize*,electron-builder
           GH_TOKEN: ${{ github.token }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+
+      - name: Notarize and staple macOS app
+        if: ${{ inputs.macos_signing == 'signed' }}
+        timeout-minutes: 120
+        shell: bash
+        env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_PATH:-}" ] || [ ! -d "$APP_PATH" ]; then
+            echo "::error::APP_PATH is missing or invalid: ${APP_PATH:-}"
+            exit 1
+          fi
+
+          notary_zip="$RUNNER_TEMP/project-folder-launcher-notary.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$notary_zip"
+          echo "Submitting $notary_zip to Apple notarization."
+
+          xcrun notarytool submit "$notary_zip" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json > "$RUNNER_TEMP/notary-submit.json"
+
+          cat "$RUNNER_TEMP/notary-submit.json"
+
+          submission_id="$(python3 - <<'PY'
+          import json
+          import os
+          with open(os.environ["RUNNER_TEMP"] + "/notary-submit.json", "r", encoding="utf-8") as handle:
+              payload = json.load(handle)
+          print(payload.get("id", ""))
+          PY
+          )"
+
+          if [ -z "$submission_id" ]; then
+            echo "::error::Apple notarization did not return a submission id."
+            exit 1
+          fi
+
+          status=""
+          for attempt in $(seq 1 90); do
+            xcrun notarytool info "$submission_id" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" \
+              --output-format json > "$RUNNER_TEMP/notary-info.json"
+
+            status="$(python3 - <<'PY'
+          import json
+          import os
+          with open(os.environ["RUNNER_TEMP"] + "/notary-info.json", "r", encoding="utf-8") as handle:
+              payload = json.load(handle)
+          print(payload.get("status", "Unknown"))
+          PY
+          )"
+
+            echo "Apple notarization status for $submission_id: $status ($attempt/90)"
+
+            if [ "$status" = "Accepted" ]; then
+              break
+            fi
+
+            if [ "$status" = "Invalid" ] || [ "$status" = "Rejected" ]; then
+              xcrun notarytool log "$submission_id" \
+                --apple-id "$APPLE_ID" \
+                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+                --team-id "$APPLE_TEAM_ID" || true
+              exit 1
+            fi
+
+            sleep 60
+          done
+
+          if [ "$status" != "Accepted" ]; then
+            echo "::error::Apple notarization timed out before acceptance."
+            xcrun notarytool log "$submission_id" \
+              --apple-id "$APPLE_ID" \
+              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+              --team-id "$APPLE_TEAM_ID" || true
+            exit 1
+          fi
+
+          xcrun stapler staple "$APP_PATH"
+          xcrun stapler validate "$APP_PATH"
+
+      - name: Package notarized macOS updater assets
+        if: ${{ inputs.macos_signing == 'signed' }}
+        timeout-minutes: 45
+        shell: bash
+        run: |
+          if [ -z "${APP_PATH:-}" ] || [ ! -d "$APP_PATH" ]; then
+            echo "::error::APP_PATH is missing or invalid: ${APP_PATH:-}"
+            exit 1
+          fi
+          npx electron-builder --mac dmg zip --universal --prepackaged "$APP_PATH" --publish never -c.mac.notarize=false
+        env:
+          GH_TOKEN: ${{ github.token }}
 
       - name: Attach macOS assets to the existing release
         uses: actions/github-script@v7
