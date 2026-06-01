@@ -64,7 +64,7 @@ npm run build:mac
 
 ## Publication macOS signée avec mise à jour automatique
 
-Les builds macOS de production sont signés et notarisés via GitHub Actions. Le workflow publie les DMG x64/arm64 pour l'installation manuelle, les ZIP x64/arm64 utilisés par `electron-updater`, et `latest-mac.yml` pour la détection des mises à jour.
+Les builds macOS de production sont signés et notarisés via GitHub Actions. Le workflow publie un DMG universel pour l'installation manuelle, un ZIP universel utilisé par `electron-updater`, et `latest-mac.yml` pour la détection des mises à jour.
 
 Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
 

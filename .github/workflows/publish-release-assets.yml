@@ -125,7 +125,7 @@ jobs:
 
       - name: Build signed and notarized macOS updater assets
         if: ${{ inputs.macos_signing == 'signed' }}
-        timeout-minutes: 35
+        timeout-minutes: 120
         run: npx electron-builder --mac --publish never -c.mac.notarize.teamId="$APPLE_TEAM_ID"
         env:
           DEBUG: electron-notarize*,@electron/notarize*,electron-builder

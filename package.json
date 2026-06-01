@@ -1,6 +1,6 @@
 {
   "name": "project-folder-launcher",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
   "main": "main.js",
   "scripts": {
@@ -66,15 +66,13 @@
         {
           "target": "dmg",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64",
-            "arm64"
+            "universal"
           ]
         }
       ],

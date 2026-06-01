@@ -130,7 +130,7 @@
 ## Mises à jour automatiques macOS
 
 1. Publier une version macOS signée/notarisée avec le workflow `Publish release assets`, `platform=macos`, `macos_signing=signed`.
-2. Vérifier que la release contient les DMG, les ZIP et `latest-mac.yml`.
+2. Vérifier que la release contient le DMG universel, le ZIP universel et `latest-mac.yml`.
 3. Installer cette version depuis le DMG.
 4. Publier une version supérieure avec le même workflow signé.
 5. Lancer l'ancienne version installée.
