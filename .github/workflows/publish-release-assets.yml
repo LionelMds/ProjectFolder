@@ -104,7 +104,7 @@ jobs:
 
       - name: Build signed and notarized macOS updater assets
         if: ${{ inputs.macos_signing == 'signed' }}
-        run: npm run release:mac
+        run: npx electron-builder --mac --publish never -c.mac.notarize.teamId="$APPLE_TEAM_ID"
         env:
           GH_TOKEN: ${{ github.token }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
