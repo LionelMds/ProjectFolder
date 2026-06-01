@@ -95,6 +95,27 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate Apple notarization credentials
+        if: ${{ inputs.macos_signing == 'signed' }}
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          xcrun notarytool history \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --output-format json > /tmp/notary-history.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/notary-history.json', 'r', encoding='utf-8') as handle:
+              history = json.load(handle)
+          submissions = history.get('history', [])
+          print(f"notarytool credentials OK, visible submissions: {len(submissions)}")
+          PY
+
       - name: Publish temporary unsigned macOS DMG assets
         if: ${{ inputs.macos_signing == 'unsigned' }}
         run: npm run build:mac
@@ -104,8 +125,10 @@ jobs:
 
       - name: Build signed and notarized macOS updater assets
         if: ${{ inputs.macos_signing == 'signed' }}
+        timeout-minutes: 35
         run: npx electron-builder --mac --publish never -c.mac.notarize.teamId="$APPLE_TEAM_ID"
         env:
+          DEBUG: electron-notarize*,@electron/notarize*,electron-builder
           GH_TOKEN: ${{ github.token }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
