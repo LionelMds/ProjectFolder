@@ -62,6 +62,14 @@ function isWindows() {
 }
 
 /**
+ * Returns the best app icon for the current platform.
+ * @returns {string}
+ */
+function getAppIconPath() {
+  return path.join(__dirname, 'assets', isWindows() ? 'icon.ico' : 'icon.png');
+}
+
+/**
  * Returns true when auto-updates are enabled for this build.
  * macOS updates are disabled until the app is signed and notarized.
  * @returns {boolean}
@@ -271,7 +279,7 @@ function createUpdateWindow() {
     resizable: false,
     skipTaskbar: false,
     alwaysOnTop: true,
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: getAppIconPath(),
     ...(isMac() && {
       vibrancy: 'under-window',
       visualEffectState: 'active',
@@ -1453,7 +1461,7 @@ function createSettingsWindow() {
     resizable: false,
     skipTaskbar: false,
     alwaysOnTop: true,
-    icon: path.join(__dirname, 'assets', 'icon.png'),
+    icon: getAppIconPath(),
     ...(isMac() && {
       vibrancy: 'under-window',
       visualEffectState: 'active',
@@ -1604,14 +1612,14 @@ function updateTrayMenu() {
  */
 function createTray() {
   const { nativeImage } = require('electron');
-  const iconPath = path.join(__dirname, 'assets', 'icon.png');
+  const iconPath = getAppIconPath();
 
   try {
     if (isMac()) {
       const templatePath = path.join(__dirname, 'assets', 'iconTemplate.png');
       const trayIcon = fs.existsSync(templatePath)
         ? nativeImage.createFromPath(templatePath)
-        : nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 });
+        : nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png')).resize({ width: 22, height: 22 });
       trayIcon.setTemplateImage(true);
       tray = new Tray(trayIcon);
     } else {
