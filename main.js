@@ -30,6 +30,8 @@ let dockedMoveMode = false;
 let miniZOrderTimer = null;
 let updateCheckTimer = null;
 let pendingUpdateInfo = null;
+let updateDownloadPromise = null;
+let updateInstallationRequested = false;
 let updateState = {
   status: 'idle',
   message: 'Prêt',
@@ -131,6 +133,24 @@ function logEvent(message, details = null) {
   } catch (error) {
     console.error('Unable to write log:', error);
   }
+}
+
+/**
+ * Creates a tiny logger adapter used by electron-updater.
+ * @returns {{info: Function, warn: Function, error: Function, debug: Function}}
+ */
+function createUpdaterLogger() {
+  const write = (level, message) => {
+    const text = message instanceof Error ? message.message : String(message || '');
+    logEvent(`electron-updater ${level}`, { message: text });
+  };
+
+  return {
+    info: message => write('info', message),
+    warn: message => write('warn', message),
+    error: message => write('error', message),
+    debug: message => write('debug', message)
+  };
 }
 
 /**
@@ -238,12 +258,14 @@ function createUpdateWindow() {
 
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
+  const updateWindowWidth = 560;
+  const updateWindowHeight = 460;
 
   updateWindow = new BrowserWindow({
-    width: 430,
-    height: 320,
-    x: Math.round((width - 430) / 2),
-    y: Math.round((height - 320) / 2),
+    width: updateWindowWidth,
+    height: updateWindowHeight,
+    x: Math.round((width - updateWindowWidth) / 2),
+    y: Math.round((height - updateWindowHeight) / 2),
     frame: false,
     transparent: true,
     resizable: false,
@@ -311,8 +333,10 @@ function configureAutoUpdater() {
     return;
   }
 
+  autoUpdater.logger = createUpdaterLogger();
   autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
   autoUpdater.disableDifferentialDownload = true;
@@ -371,6 +395,7 @@ function configureAutoUpdater() {
   });
 
   autoUpdater.on('update-downloaded', (info) => {
+    updateDownloadPromise = null;
     app.setProgressBar(-1);
     setUpdateState({
       status: 'ready',
@@ -384,6 +409,9 @@ function configureAutoUpdater() {
   });
 
   autoUpdater.on('error', (error) => {
+    updateDownloadPromise = null;
+    updateInstallationRequested = false;
+    app.isQuitting = false;
     app.setProgressBar(-1);
     setUpdateState({
       status: 'error',
@@ -392,6 +420,10 @@ function configureAutoUpdater() {
     });
     showUpdateWindow();
     logEvent('Updater error', { error: error.message || String(error) });
+  });
+
+  autoUpdater.on('before-quit-for-update', () => {
+    markAppQuittingForUpdate();
   });
 }
 
@@ -462,6 +494,11 @@ async function startUpdateDownload() {
     return { success: true };
   }
 
+  if (updateState.status === 'downloading' && updateDownloadPromise) {
+    showUpdateWindow();
+    return { success: true, status: 'downloading' };
+  }
+
   if (!pendingUpdateInfo && updateState.status !== 'available') {
     await checkForUpdates(true);
     return { success: true };
@@ -474,14 +511,46 @@ async function startUpdateDownload() {
     percent: 0,
     error: null
   });
-  await autoUpdater.downloadUpdate();
+
+  updateDownloadPromise = autoUpdater.downloadUpdate()
+    .then(files => {
+      logEvent('Updater download completed', { files });
+      return files;
+    })
+    .catch(error => {
+      updateDownloadPromise = null;
+      app.setProgressBar(-1);
+      setUpdateState({
+        status: 'error',
+        message: 'La mise à jour a échoué.',
+        error: error.message || String(error)
+      });
+      showUpdateWindow();
+      throw error;
+    });
+
+  await updateDownloadPromise;
   return { success: true };
+}
+
+/**
+ * Marks the app as intentionally quitting for an update.
+ */
+function markAppQuittingForUpdate() {
+  updateInstallationRequested = true;
+  app.isQuitting = true;
+  stopMiniZOrderKeeper();
+  logEvent('Updater installation shutdown prepared');
 }
 
 /**
  * Installs the downloaded update and restarts the app.
  */
 function installDownloadedUpdate() {
+  if (updateInstallationRequested) {
+    return;
+  }
+
   if (!supportsAutoUpdates()) {
     setUpdateState({
       status: 'error',
@@ -500,15 +569,34 @@ function installDownloadedUpdate() {
     return;
   }
 
+  markAppQuittingForUpdate();
   setUpdateState({
     status: 'installing',
     message: 'Fermeture et lancement de l’installateur...',
     percent: 100,
     error: null
   });
-  stopMiniZOrderKeeper();
   app.setProgressBar(-1);
-  autoUpdater.quitAndInstall(false, true);
+
+  setTimeout(() => {
+    try {
+      if (isWindows()) {
+        autoUpdater.quitAndInstall(true, true);
+      } else {
+        autoUpdater.quitAndInstall();
+      }
+    } catch (error) {
+      updateInstallationRequested = false;
+      app.isQuitting = false;
+      setUpdateState({
+        status: 'error',
+        message: 'Impossible de lancer l’installation.',
+        error: error.message || String(error)
+      });
+      showUpdateWindow();
+      logEvent('Updater install launch failed', { error: error.message || String(error) });
+    }
+  }, 700);
 }
 
 /**

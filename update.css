@@ -87,10 +87,12 @@ body {
 
 .update-content {
     flex: 1;
+    min-height: 0;
     padding: 18px;
     display: flex;
     flex-direction: column;
     gap: 10px;
+    overflow: auto;
 }
 
 .status-icon {
@@ -166,7 +168,7 @@ p {
 
 .release-notes {
     display: none;
-    max-height: 54px;
+    max-height: 116px;
     overflow: auto;
     white-space: pre-wrap;
     padding: 8px;
@@ -187,6 +189,7 @@ p {
     gap: 8px;
     padding: 12px 14px;
     border-top: 1px solid var(--border);
+    flex-shrink: 0;
 }
 
 .btn {
@@ -196,6 +199,7 @@ p {
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .btn:disabled {
@@ -206,6 +210,7 @@ p {
 .btn-primary {
     background: var(--accent);
     color: white;
+    min-width: 210px;
 }
 
 .btn-primary:not(:disabled):hover {
