@@ -162,6 +162,18 @@ function createUpdaterLogger() {
 }
 
 /**
+ * Updates the Windows taskbar/dock progress for every open window.
+ * @param {number} value
+ */
+function setWindowProgressBar(value) {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.isDestroyed() && typeof win.setProgressBar === 'function') {
+      win.setProgressBar(value);
+    }
+  }
+}
+
+/**
  * Shows a desktop notification for an error and writes it to the log.
  * @param {string} title
  * @param {Error|string} error
@@ -347,6 +359,7 @@ function configureAutoUpdater() {
   autoUpdater.autoRunAppAfterInstall = true;
   autoUpdater.allowPrerelease = false;
   autoUpdater.allowDowngrade = false;
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.disableDifferentialDownload = true;
 
   autoUpdater.on('checking-for-update', () => {
@@ -389,7 +402,7 @@ function configureAutoUpdater() {
 
   autoUpdater.on('download-progress', (progress) => {
     const percent = Math.max(0, Math.min(progress.percent || 0, 100));
-    app.setProgressBar(percent / 100);
+    setWindowProgressBar(percent / 100);
     setUpdateState({
       status: 'downloading',
       message: `Téléchargement ${percent.toFixed(0)} %`,
@@ -404,7 +417,7 @@ function configureAutoUpdater() {
 
   autoUpdater.on('update-downloaded', (info) => {
     updateDownloadPromise = null;
-    app.setProgressBar(-1);
+    setWindowProgressBar(-1);
     setUpdateState({
       status: 'ready',
       message: 'Mise à jour téléchargée. Installation...',
@@ -420,7 +433,7 @@ function configureAutoUpdater() {
     updateDownloadPromise = null;
     updateInstallationRequested = false;
     app.isQuitting = false;
-    app.setProgressBar(-1);
+    setWindowProgressBar(-1);
     setUpdateState({
       status: 'error',
       message: 'La mise à jour a échoué.',
@@ -527,7 +540,7 @@ async function startUpdateDownload() {
     })
     .catch(error => {
       updateDownloadPromise = null;
-      app.setProgressBar(-1);
+      setWindowProgressBar(-1);
       setUpdateState({
         status: 'error',
         message: 'La mise à jour a échoué.',
@@ -584,7 +597,7 @@ function installDownloadedUpdate() {
     percent: 100,
     error: null
   });
-  app.setProgressBar(-1);
+  setWindowProgressBar(-1);
 
   setTimeout(() => {
     try {
