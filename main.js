@@ -1730,19 +1730,20 @@ async function openFolderInNewWindow(folderPath) {
 }
 
 /**
- * Builds a PowerShell UI Automation script that navigates the active Explorer address bar.
+ * Builds a PowerShell script that navigates Windows Explorer through COM.
+ * Explorer does not expose a documented "open tab at path" API, so new tabs still
+ * start with Ctrl+T, then the new Shell window object is navigated directly.
  * @param {string} folderPath
- * @param {boolean} openNewTab
+ * @param {'newTab'|'reuseWindow'} mode
  * @returns {string}
  */
-function buildWindowsExplorerAddressBarScript(folderPath, openNewTab) {
+function buildWindowsExplorerComNavigationScript(folderPath, mode) {
   const escapedPath = escapePowerShellSingleQuoted(folderPath);
-  const openNewTabValue = openNewTab ? '$true' : '$false';
+  const escapedMode = escapePowerShellSingleQuoted(mode);
 
   return `
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName UIAutomationClient
-Add-Type -AssemblyName UIAutomationTypes
 
 Add-Type @"
 using System;
@@ -1750,135 +1751,289 @@ using System.Runtime.InteropServices;
 public class Win32 {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
 }
 "@
 
-function ConvertTo-SendKeysLiteral([string]$Text) {
-  $builder = New-Object System.Text.StringBuilder
-  foreach ($char in $Text.ToCharArray()) {
-    switch ([string]$char) {
-      '+' { [void]$builder.Append('{+}') }
-      '^' { [void]$builder.Append('{^}') }
-      '%' { [void]$builder.Append('{%}') }
-      '~' { [void]$builder.Append('{~}') }
-      '(' { [void]$builder.Append('{(}') }
-      ')' { [void]$builder.Append('{)}') }
-      '[' { [void]$builder.Append('{[}') }
-      ']' { [void]$builder.Append('{]}') }
-      '{' { [void]$builder.Append('{{}') }
-      '}' { [void]$builder.Append('{}}') }
-      default { [void]$builder.Append($char) }
+function Test-IsExplorerWindow($Window) {
+  try {
+    $fullName = [string]$Window.FullName
+    if (-not [string]::IsNullOrWhiteSpace($fullName)) {
+      return [string]::Equals(
+        [System.IO.Path]::GetFileName($fullName),
+        'explorer.exe',
+        [System.StringComparison]::OrdinalIgnoreCase
+      )
     }
+  } catch {}
+
+  try {
+    $name = [string]$Window.Name
+    return $name -eq 'Explorateur de fichiers' -or $name -eq 'File Explorer'
+  } catch {
+    return $false
   }
-  return $builder.ToString()
 }
 
-function Set-AddressBarValueWithUiAutomation([string]$Path) {
+function Get-ExplorerWindows($Shell) {
+  return @($Shell.Windows() | Where-Object { Test-IsExplorerWindow $_ })
+}
+
+function Get-WindowFileSystemPath($Window) {
   try {
-    $focusedElement = [System.Windows.Automation.AutomationElement]::FocusedElement
-    if ($null -eq $focusedElement) {
-      return $false
+    $documentPath = [string]$Window.Document.Folder.Self.Path
+    if (-not [string]::IsNullOrWhiteSpace($documentPath) -and [System.IO.Directory]::Exists($documentPath)) {
+      return $documentPath
     }
+  } catch {}
 
-    $valuePattern = $null
-    $supportsValuePattern = $focusedElement.TryGetCurrentPattern(
-      [System.Windows.Automation.ValuePattern]::Pattern,
-      [ref]$valuePattern
-    )
-
-    if (-not $supportsValuePattern -or $null -eq $valuePattern) {
-      return $false
+  try {
+    $locationUrl = [string]$Window.LocationURL
+    if ($locationUrl.StartsWith('file:///', [System.StringComparison]::OrdinalIgnoreCase)) {
+      $uri = [System.Uri]$locationUrl
+      return $uri.LocalPath
     }
+  } catch {}
 
-    if ($valuePattern.Current.IsReadOnly) {
-      return $false
+  return ''
+}
+
+function Normalize-PathForCompare([string]$Path) {
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    return ''
+  }
+
+  try {
+    return ([System.IO.Path]::GetFullPath($Path)).TrimEnd('\\')
+  } catch {
+    return $Path.TrimEnd('\\')
+  }
+}
+
+function Test-WindowAtPath($Window, [string]$Path) {
+  $currentPath = Normalize-PathForCompare (Get-WindowFileSystemPath $Window)
+  $expectedPath = Normalize-PathForCompare $Path
+
+  if ([string]::IsNullOrWhiteSpace($currentPath) -or [string]::IsNullOrWhiteSpace($expectedPath)) {
+    return $false
+  }
+
+  return [string]::Equals($currentPath, $expectedPath, [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+function Get-WindowSignature($Window) {
+  $hwnd = ''
+  $locationUrl = ''
+  $folderPath = ''
+  try {
+    $hwnd = [string]$Window.HWND
+  } catch {}
+  try {
+    $locationUrl = [string]$Window.LocationURL
+  } catch {}
+  try {
+    $folderPath = [string]$Window.Document.Folder.Self.Path
+  } catch {}
+
+  return "$hwnd|$locationUrl|$folderPath"
+}
+
+function New-SignatureCounts($Windows) {
+  $counts = @{}
+  foreach ($window in $Windows) {
+    $signature = Get-WindowSignature $window
+    if ($counts.ContainsKey($signature)) {
+      $counts[$signature] = [int]$counts[$signature] + 1
+    } else {
+      $counts[$signature] = 1
     }
+  }
+  return $counts
+}
 
-    $valuePattern.SetValue($Path)
+function Find-NewExplorerWindow($Shell, $BeforeWindows, [int]$TimeoutMs) {
+  $beforeWindowList = @($BeforeWindows)
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+
+  do {
+    Start-Sleep -Milliseconds 35
+    $afterWindows = @(Get-ExplorerWindows $Shell)
+
+    if ($afterWindows.Count -gt $beforeWindowList.Count) {
+      $remaining = @{}
+      $beforeCounts = New-SignatureCounts $beforeWindowList
+      foreach ($key in $beforeCounts.Keys) {
+        $remaining[$key] = $beforeCounts[$key]
+      }
+
+      foreach ($candidate in $afterWindows) {
+        $signature = Get-WindowSignature $candidate
+        if ($remaining.ContainsKey($signature) -and [int]$remaining[$signature] -gt 0) {
+          $remaining[$signature] = [int]$remaining[$signature] - 1
+        } else {
+          return $candidate
+        }
+      }
+    }
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  return $null
+}
+
+function Select-ExplorerWindow($Shell) {
+  $windows = @(Get-ExplorerWindows $Shell)
+  if ($windows.Count -eq 0) {
+    return $null
+  }
+
+  $foregroundHwnd = [Win32]::GetForegroundWindow().ToInt64()
+  foreach ($window in $windows) {
+    try {
+      if ([int64]$window.HWND -eq $foregroundHwnd) {
+        return $window
+      }
+    } catch {}
+  }
+
+  foreach ($window in $windows) {
+    try {
+      if ([bool]$window.Visible) {
+        return $window
+      }
+    } catch {}
+  }
+
+  return $windows[0]
+}
+
+function Activate-ExplorerWindow($Window) {
+  try {
+    $hwnd = [IntPtr]([int64]$Window.HWND)
+    [Win32]::ShowWindow($hwnd, 9) | Out-Null
+    [Win32]::SetForegroundWindow($hwnd) | Out-Null
+    Start-Sleep -Milliseconds 80
     return $true
   } catch {
     return $false
   }
 }
 
-function Open-PathFromAddressBarFallback([string]$Path) {
-  $previousClipboard = $null
-  $clipboardCaptured = $false
-
+function Invoke-ExplorerNavigate($Window, [string]$Path, [int]$TimeoutMs) {
   try {
-    $previousClipboard = [System.Windows.Forms.Clipboard]::GetDataObject()
-    $clipboardCaptured = $true
-  } catch {
-    $clipboardCaptured = $false
-  }
-
-  try {
-    [System.Windows.Forms.Clipboard]::SetText($Path)
-    Start-Sleep -Milliseconds 40
-    [System.Windows.Forms.SendKeys]::SendWait('^v')
-    Start-Sleep -Milliseconds 80
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-  } catch {
-    [System.Windows.Forms.SendKeys]::SendWait((ConvertTo-SendKeysLiteral $Path))
-    Start-Sleep -Milliseconds 80
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
-  } finally {
-    if ($clipboardCaptured -and $previousClipboard) {
-      Start-Sleep -Milliseconds 250
-      try {
-        [System.Windows.Forms.Clipboard]::SetDataObject($previousClipboard, $true)
-      } catch {}
+    try {
+      $Window.Navigate2($Path)
+    } catch {
+      $Window.Navigate($Path)
     }
+  } catch {
+    Write-Output ('com-navigate-error:' + $_.Exception.Message)
+    return $false
   }
+
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+  do {
+    Start-Sleep -Milliseconds 35
+    if (Test-WindowAtPath $Window $Path) {
+      return $true
+    }
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  return (Test-WindowAtPath $Window $Path)
 }
 
-function Navigate-ExplorerAddressBar([string]$Path, [bool]$OpenNewTab) {
-  if ($OpenNewTab) {
-    [System.Windows.Forms.SendKeys]::SendWait('^t')
-    Start-Sleep -Milliseconds 180
+function Open-InNewExplorerWindow([string]$Path) {
+  $quotedPath = '"' + $Path.Replace('"', '\\"') + '"'
+  Start-Process -FilePath explorer.exe -ArgumentList $quotedPath
+}
+
+function Navigate-ReuseWindow($Shell, [string]$Path) {
+  $target = Select-ExplorerWindow $Shell
+  if ($null -eq $target) {
+    Open-InNewExplorerWindow $Path
+    Write-Output 'fallback:new-window:no-existing-explorer'
+    return
   }
 
-  [System.Windows.Forms.SendKeys]::SendWait('^l')
-  Start-Sleep -Milliseconds 80
+  Activate-ExplorerWindow $target | Out-Null
+  if (Invoke-ExplorerNavigate $target $Path 900) {
+    Write-Output 'opened:reuse-window:com'
+    return
+  }
 
-  if (Set-AddressBarValueWithUiAutomation $Path) {
-    [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
+  Open-InNewExplorerWindow $Path
+  Write-Output 'fallback:new-window:reuse-navigation-failed'
+}
+
+function Navigate-NewTab($Shell, [string]$Path) {
+  $target = Select-ExplorerWindow $Shell
+  if ($null -eq $target) {
+    Open-InNewExplorerWindow $Path
+    Write-Output 'fallback:new-window:no-existing-explorer'
+    return
+  }
+
+  $beforeWindows = @(Get-ExplorerWindows $Shell)
+  Activate-ExplorerWindow $target | Out-Null
+  [System.Windows.Forms.SendKeys]::SendWait('^t')
+
+  $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500
+  if ($null -ne $newTab) {
+    Activate-ExplorerWindow $newTab | Out-Null
+    if (Invoke-ExplorerNavigate $newTab $Path 1100) {
+      Write-Output 'opened:new-tab:com'
+      return
+    }
+
+    Write-Output 'new-tab-com-navigation-failed'
   } else {
-    Open-PathFromAddressBarFallback $Path
+    Write-Output 'new-tab-com-object-not-found'
+    if (Invoke-ExplorerNavigate $target $Path 900) {
+      Write-Output 'opened:new-tab:active-com'
+      return
+    }
   }
+
+  Open-InNewExplorerWindow $Path
+  Write-Output 'fallback:new-window:new-tab-navigation-failed'
 }
 
 $folderPath = '${escapedPath}'
-$openNewTab = ${openNewTabValue}
+$mode = '${escapedMode}'
 $shell = New-Object -ComObject Shell.Application
-$windows = @($shell.Windows())
-$target = $null
-foreach ($w in $windows) {
-  if ($w.Name -eq 'Explorateur de fichiers' -or $w.Name -eq 'File Explorer') {
-    $target = $w
-    break
-  }
-}
-if ($target) {
-  $hwnd = $target.HWND
-  [Win32]::ShowWindow([IntPtr]$hwnd, 9) | Out-Null
-  [Win32]::SetForegroundWindow([IntPtr]$hwnd) | Out-Null
-  Start-Sleep -Milliseconds 120
-  Navigate-ExplorerAddressBar $folderPath $openNewTab
+
+if ($mode -eq 'reuseWindow') {
+  Navigate-ReuseWindow $shell $folderPath
+} elseif ($mode -eq 'newTab') {
+  Navigate-NewTab $shell $folderPath
 } else {
-  Start-Process explorer.exe -ArgumentList $folderPath
+  Open-InNewExplorerWindow $folderPath
+  Write-Output 'opened:new-window:explicit'
 }
 `;
 }
 
 /**
- * Navigates an Explorer window through the address bar.
+ * Navigates an Explorer window directly through COM.
  * @param {string} folderPath
- * @param {boolean} openNewTab
+ * @param {'newTab'|'reuseWindow'} mode
  */
-async function navigateWindowsExplorerAddressBar(folderPath, openNewTab) {
-  const psScript = buildWindowsExplorerAddressBarScript(folderPath, openNewTab);
-  await execFileAsync('powershell.exe', ['-NoProfile', '-Sta', '-ExecutionPolicy', 'Bypass', '-Command', psScript], 7000);
+async function navigateWindowsExplorerWithCom(folderPath, mode) {
+  const psScript = buildWindowsExplorerComNavigationScript(folderPath, mode);
+  const result = await execFileAsync('powershell.exe', [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-Sta',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-Command',
+    psScript
+  ], 5000);
+
+  const output = result.stdout.trim();
+  if (output) {
+    logEvent('Windows Explorer navigation route', { mode, output });
+  }
 }
 
 /**
@@ -1891,7 +2046,7 @@ async function openFolderInWindowsExplorerTab(folderPath) {
     return;
   }
 
-  await navigateWindowsExplorerAddressBar(folderPath, true);
+  await navigateWindowsExplorerWithCom(folderPath, 'newTab');
 }
 
 /**
@@ -1939,7 +2094,7 @@ async function openFolderInNewTab(folderPath) {
  * @param {string} folderPath
  */
 async function reuseWindowsExplorerWindow(folderPath) {
-  await navigateWindowsExplorerAddressBar(folderPath, false);
+  await navigateWindowsExplorerWithCom(folderPath, 'reuseWindow');
 }
 
 /**
