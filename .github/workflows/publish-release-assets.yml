@@ -259,7 +259,13 @@ jobs:
           });
           NODE
 
-          APP_PATH_TO_SIGN="$app_path" node <<'NODE'
+          signing_identity="$(security find-identity -v -p codesigning signing_temp.keychain | awk 'NR == 1 { print $2 }')"
+          if [[ ! "$signing_identity" =~ ^[0-9A-Fa-f]{40}$ ]]; then
+            echo "::error::No usable Apple code-signing identity was found."
+            exit 1
+          fi
+
+          APP_PATH_TO_SIGN="$app_path" APP_SIGNING_IDENTITY="$signing_identity" node <<'NODE'
           const path = require('node:path');
           const { signAsync } = require('@electron/osx-sign');
 
@@ -270,6 +276,8 @@ jobs:
           signAsync({
             app: appPath,
             keychain: 'signing_temp',
+            identity: process.env.APP_SIGNING_IDENTITY,
+            identityValidation: false,
             platform: 'darwin',
             type: 'distribution',
             hardenedRuntime: true,
