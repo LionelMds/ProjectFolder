@@ -22,7 +22,7 @@ function init() {
     primaryBtn.addEventListener('click', handlePrimaryAction);
     laterBtn.addEventListener('click', () => window.electronAPI.closeUpdateWindow());
     closeBtn.addEventListener('click', () => window.electronAPI.closeUpdateWindow());
-    window.electronAPI.onUpdateState((event, state) => renderState(state));
+    window.electronAPI.onUpdateState(state => renderState(state));
 }
 
 function renderState(state) {

@@ -1,5 +1,8 @@
 let config = null;
 let buttonsVisible = false;
+let isValidProject = false;
+let validationTimer = null;
+let validationRequestId = 0;
 
 const digitsOnlyRegex = /^\d{4}$/;
 const miniInput = document.getElementById('miniInput');
@@ -89,7 +92,11 @@ function handleInput(event) {
 }
 
 function validateAndUpdateStatus(value) {
+    clearTimeout(validationTimer);
+    const requestId = ++validationRequestId;
+
     if (value === '') {
+        isValidProject = false;
         miniStatus.textContent = '';
         miniStatus.className = 'mini-status';
         showButtons(false);
@@ -97,22 +104,41 @@ function validateAndUpdateStatus(value) {
     }
 
     if (digitsOnlyRegex.test(value)) {
-        miniStatus.textContent = '✓';
-        miniStatus.className = 'mini-status valid';
-        showButtons(true);
+        isValidProject = false;
+        miniStatus.textContent = '...';
+        miniStatus.className = 'mini-status';
+        showButtons(false);
+        validationTimer = setTimeout(() => resolveProject(value, requestId), 100);
         return;
     }
 
     if (/^\d{1,3}$/.test(value)) {
+        isValidProject = false;
         miniStatus.textContent = '...';
         miniStatus.className = 'mini-status';
         showButtons(false);
         return;
     }
 
+    isValidProject = false;
     miniStatus.textContent = '✕';
     miniStatus.className = 'mini-status invalid';
     showButtons(false);
+}
+
+async function resolveProject(value, requestId) {
+    const result = await window.electronAPI.resolveProject(value);
+
+    if (requestId !== validationRequestId || miniInput.value.trim() !== value) {
+        return;
+    }
+
+    isValidProject = Boolean(result.success && result.found);
+    miniStatus.textContent = isValidProject ? '✓' : '✕';
+    miniStatus.className = isValidProject
+        ? 'mini-status valid'
+        : 'mini-status invalid';
+    await showButtons(isValidProject);
 }
 
 async function showButtons(show) {
@@ -138,6 +164,9 @@ async function showButtons(show) {
 
 function clearInput(immediate = false) {
     const run = () => {
+        clearTimeout(validationTimer);
+        validationRequestId += 1;
+        isValidProject = false;
         miniInput.value = '';
         miniStatus.textContent = '';
         miniStatus.className = 'mini-status';
@@ -168,17 +197,14 @@ function getShortcutSubfolderIndex(event) {
 function handleKeydown(event) {
     const value = miniInput.value.trim();
 
-    if (event.key === 'Enter' && digitsOnlyRegex.test(value)) {
+    if (event.key === 'Enter' && digitsOnlyRegex.test(value) && isValidProject) {
         event.preventDefault();
         openSubfolderFromMini(getShortcutSubfolderIndex(event));
         return;
     }
 
     if (event.key === 'Escape') {
-        miniInput.value = '';
-        miniStatus.textContent = '';
-        miniStatus.className = 'mini-status';
-        showButtons(false);
+        clearInput(true);
         miniInput.blur();
     }
 }
@@ -186,7 +212,7 @@ function handleKeydown(event) {
 async function openSubfolderFromMini(index) {
     const value = miniInput.value.trim();
 
-    if (!digitsOnlyRegex.test(value)) {
+    if (!digitsOnlyRegex.test(value) || !isValidProject) {
         return;
     }
 
@@ -194,6 +220,7 @@ async function openSubfolderFromMini(index) {
 
     if (!result.success) {
         console.error('Failed to open folder:', result.error);
+        return;
     }
 
     clearInput();

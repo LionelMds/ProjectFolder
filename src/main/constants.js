@@ -1,0 +1,48 @@
+'use strict';
+
+const APP_NAME = 'Project Folder Launcher';
+const CONFIG_SCHEMA_VERSION = 3;
+const MAIN_WINDOW_SIZE = Object.freeze({ width: 450, height: 400 });
+const SETTINGS_WINDOW_SIZE = Object.freeze({ width: 680, height: 760 });
+const UPDATE_WINDOW_SIZE = Object.freeze({ width: 620, height: 560 });
+const MINI_BASE_WIDTH = 260;
+const MINI_MAX_WIDTH = 520;
+const MINI_DEFAULT_HEIGHT = 44;
+const MINI_EDGE_PADDING = 8;
+const VALID_INTEGRATION_MODES = Object.freeze(['floating', 'docked', 'hidden']);
+const VALID_OPEN_BEHAVIORS = Object.freeze(['newWindow', 'newTab', 'reuseWindow']);
+const VALID_SUBFOLDER_SHORTCUTS = Object.freeze([
+  'Enter',
+  'Ctrl+Enter',
+  'Shift+Enter',
+  'Alt+Enter'
+]);
+const UPDATE_CHECK_INTERVAL_MS = 4 * 60 * 60 * 1000;
+const RECENT_FOLDERS_LIMIT = 10;
+const MAX_SUBFOLDERS = 40;
+const MAX_LABEL_LENGTH = 120;
+const MAX_RELATIVE_PATH_LENGTH = 500;
+const MAX_GLOBAL_SHORTCUT_LENGTH = 120;
+const MAX_LOG_BYTES = 2 * 1024 * 1024;
+
+module.exports = {
+  APP_NAME,
+  CONFIG_SCHEMA_VERSION,
+  MAIN_WINDOW_SIZE,
+  SETTINGS_WINDOW_SIZE,
+  UPDATE_WINDOW_SIZE,
+  MINI_BASE_WIDTH,
+  MINI_MAX_WIDTH,
+  MINI_DEFAULT_HEIGHT,
+  MINI_EDGE_PADDING,
+  VALID_INTEGRATION_MODES,
+  VALID_OPEN_BEHAVIORS,
+  VALID_SUBFOLDER_SHORTCUTS,
+  UPDATE_CHECK_INTERVAL_MS,
+  RECENT_FOLDERS_LIMIT,
+  MAX_SUBFOLDERS,
+  MAX_LABEL_LENGTH,
+  MAX_RELATIVE_PATH_LENGTH,
+  MAX_GLOBAL_SHORTCUT_LENGTH,
+  MAX_LOG_BYTES
+};

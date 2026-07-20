@@ -30,9 +30,24 @@ Tapez `4889` et l'application cherche automatiquement le premier dossier `YYYY-4
 ## Installation développeur
 
 ```powershell
-npm install
+npm ci
+npm run check
 npm start
 ```
+
+Node.js `22.12` ou plus récent est requis pour le développement. Les utilisateurs finaux n'ont pas besoin d'installer Node.js.
+
+## Architecture
+
+Le processus principal est découpé par responsabilité dans `src/main` :
+
+- `application.js` orchestre le cycle de vie et les actions utilisateur.
+- `window-manager.js` gère les fenêtres, le tray et les écrans.
+- `config-store.js` migre et sauvegarde la configuration de façon transactionnelle.
+- `project-service.js` vérifie les projets et sécurise les chemins.
+- `folder-openers/` isole Explorer et Finder.
+- `updater-service.js` gère la recherche, le téléchargement et l'installation des mises à jour.
+- `security.js` et `ipc-router.js` limitent chaque action IPC aux fenêtres autorisées.
 
 ## Build Windows
 
@@ -40,18 +55,20 @@ npm start
 npm run build
 ```
 
-L'installateur NSIS est généré dans `dist/`.
+L'installateur NSIS est généré dans `dist/`. Un build local sans certificat reste adapté aux tests, mais pas à une publication.
 
 ## Publication Windows avec mise à jour automatique
 
-Les mises à jour utilisent GitHub Releases via `electron-updater`.
+Les mises à jour utilisent GitHub Releases via `electron-updater`. La publication de production passe par le workflow `Publish release assets`, avec un tag `vX.Y.Z` correspondant exactement à la version de `package.json`.
 
-```powershell
-$env:GH_TOKEN="votre_token_github"
-npm run release:win
-```
+La vérification automatique reste silencieuse au démarrage. Une nouvelle version est signalée une seule fois par une notification système, sans ouvrir de fenêtre, puis demeure accessible depuis le menu de l'icône de l'application.
 
-Le build publie l'installateur et `latest.yml`. Les versions installées vérifient ensuite les mises à jour automatiquement et affichent une fenêtre avec progression avant installation. Les mises à jour différentielles sont désactivées pour garder les releases lisibles, donc l'installateur complet est téléchargé.
+Secrets Windows requis :
+
+- `WIN_CSC_LINK` : certificat Authenticode `.p12` encodé en base64 ou URL sécurisée.
+- `WIN_CSC_KEY_PASSWORD` : mot de passe du certificat.
+
+Le workflow vérifie la signature avant d'envoyer l'installateur et `latest.yml`. Un build Windows non signé reste disponible comme artefact temporaire dans Actions et n'est jamais joint à la release.
 
 ## Build macOS
 
@@ -77,19 +94,21 @@ Secrets requis dans GitHub > Settings > Secrets and variables > Actions :
 Pour publier les artefacts macOS signés/notarisés :
 
 - `Actions` > `Publish release assets` > `Run workflow`
-- `ref` : `main`
+- `ref` : le tag de version ou `main` si ce commit porte déjà le tag attendu
 - `platform` : `macos`
 - `macos_signing` : `signed`
 
 ## Publication macOS temporaire non signée
 
-Le mode `macos_signing=unsigned` reste disponible pour générer uniquement des DMG de test. Ces builds ne sont pas adaptés à une distribution publique et peuvent déclencher Gatekeeper.
+Le mode `macos_signing=unsigned` génère un DMG de test conservé sept jours dans Actions. Il n'est jamais joint à une release publique et peut être bloqué par Gatekeeper.
 
 ## Configuration
 
 Au premier lancement, si aucun dossier racine n'est configuré, la fenêtre Paramètres s'ouvre automatiquement.
 
 Le fichier `config.json` est volontairement ignoré par Git, car il contient des chemins locaux. Un exemple public est fourni dans `config.example.json`.
+
+Les écritures sont atomiques. La version précédente est conservée dans `config.json.bak`; une configuration illisible est renommée avec le suffixe `.corrupt-<date>` puis restaurée depuis la sauvegarde.
 
 ## Raccourcis
 

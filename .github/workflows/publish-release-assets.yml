@@ -4,74 +4,169 @@ on:
   workflow_dispatch:
     inputs:
       ref:
-        description: "Branch or tag to build. Use main to attach assets to the package.json version release."
+        description: "Tag or branch to build. Signed releases must match tag v<package version>."
         required: true
         default: "main"
       platform:
-        description: "Platform assets to publish"
+        description: "Platform assets"
         required: true
         type: choice
-        default: "macos"
+        default: "all"
         options:
           - windows
           - macos
           - all
-      macos_signing:
-        description: "macOS signing mode. Use unsigned only for temporary test releases."
+      windows_signing:
+        description: "Unsigned Windows builds are kept as temporary Actions artifacts."
         required: true
         type: choice
-        default: "unsigned"
+        default: "signed"
         options:
-          - unsigned
           - signed
+          - unsigned
+      macos_signing:
+        description: "Unsigned macOS builds are kept as temporary Actions artifacts."
+        required: true
+        type: choice
+        default: "signed"
+        options:
+          - signed
+          - unsigned
 
 permissions:
   contents: write
 
 jobs:
   windows:
-    name: Windows NSIS assets
+    name: Windows release assets
     if: ${{ inputs.platform == 'windows' || inputs.platform == 'all' }}
     runs-on: windows-latest
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ inputs.ref }}
+          fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 20
+          node-version: "22.12"
           cache: npm
+
+      - name: Validate signed release tag
+        if: ${{ inputs.windows_signing == 'signed' }}
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $tag = "v$version"
+          $tagCommit = git rev-list -n 1 $tag
+          $headCommit = git rev-parse HEAD
+          if (-not $tagCommit) {
+            throw "Release tag $tag does not exist."
+          }
+          if ($tagCommit.Trim() -ne $headCommit.Trim()) {
+            throw "Release tag $tag does not point to the checked-out commit."
+          }
+          "RELEASE_TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Validate Windows signing secrets
+        if: ${{ inputs.windows_signing == 'signed' }}
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          $missing = @()
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK)) { $missing += "WIN_CSC_LINK" }
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) { $missing += "WIN_CSC_KEY_PASSWORD" }
+          if ($missing.Count -gt 0) {
+            throw "Missing Windows signing secrets: $($missing -join ', ')"
+          }
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Publish Windows release assets
-        run: npm run release:win
+      - name: Check source and tests
+        run: npm run check
+
+      - name: Build Windows installer
+        run: npm run build:win -- --publish never
+        env:
+          CSC_LINK: ${{ inputs.windows_signing == 'signed' && secrets.WIN_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ inputs.windows_signing == 'signed' && secrets.WIN_CSC_KEY_PASSWORD || '' }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ inputs.windows_signing == 'signed' && 'true' || 'false' }}
+
+      - name: Verify Windows signature
+        if: ${{ inputs.windows_signing == 'signed' }}
+        shell: pwsh
+        run: |
+          $installers = @(Get-ChildItem dist -Filter "ProjectFolderLauncher-Setup-*.exe")
+          if ($installers.Count -ne 1) {
+            throw "Expected exactly one Windows installer, found $($installers.Count)."
+          }
+          $signature = Get-AuthenticodeSignature -LiteralPath $installers[0].FullName
+          if ($signature.Status -ne "Valid") {
+            throw "Installer signature is not valid: $($signature.Status) $($signature.StatusMessage)"
+          }
+          Write-Host "Valid Authenticode signature: $($signature.SignerCertificate.Subject)"
+
+      - name: Publish signed Windows updater assets
+        if: ${{ inputs.windows_signing == 'signed' }}
+        shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = (Get-ChildItem dist -Filter "ProjectFolderLauncher-Setup-*.exe").FullName
+          gh release view $env:RELEASE_TAG
+          gh release upload $env:RELEASE_TAG $installer "dist/latest.yml" --clobber
+
+      - name: Upload temporary unsigned Windows installer
+        if: ${{ inputs.windows_signing == 'unsigned' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ProjectFolderLauncher-Windows-UNSIGNED
+          path: dist/ProjectFolderLauncher-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
 
   macos:
     name: macOS release assets
     if: ${{ inputs.platform == 'macos' || inputs.platform == 'all' }}
     runs-on: macos-14
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
         with:
           ref: ${{ inputs.ref }}
+          fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
-          node-version: 20
+          node-version: "22.12"
           cache: npm
 
-      - name: Validate macOS signing secrets
+      - name: Validate signed release tag
+        if: ${{ inputs.macos_signing == 'signed' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          tag="v${version}"
+          tag_commit="$(git rev-list -n 1 "$tag")"
+          head_commit="$(git rev-parse HEAD)"
+          if [ -z "$tag_commit" ]; then
+            echo "::error::Release tag $tag does not exist."
+            exit 1
+          fi
+          if [ "$tag_commit" != "$head_commit" ]; then
+            echo "::error::Release tag $tag does not point to the checked-out commit."
+            exit 1
+          fi
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+
+      - name: Validate Apple signing and notarization secrets
         if: ${{ inputs.macos_signing == 'signed' }}
         shell: bash
         env:
@@ -88,61 +183,50 @@ jobs:
           [ -z "$APPLE_APP_SPECIFIC_PASSWORD" ] && missing+=("APPLE_APP_SPECIFIC_PASSWORD")
           [ -z "$APPLE_TEAM_ID" ] && missing+=("APPLE_TEAM_ID")
           if [ "${#missing[@]}" -gt 0 ]; then
-            echo "::error::Missing required macOS signing/notarization secrets: ${missing[*]}"
+            echo "::error::Missing Apple secrets: ${missing[*]}"
             exit 1
           fi
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Validate Apple notarization credentials
-        if: ${{ inputs.macos_signing == 'signed' }}
-        shell: bash
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          xcrun notarytool history \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --output-format json > /tmp/notary-history.json
-          python3 - <<'PY'
-          import json
-          with open('/tmp/notary-history.json', 'r', encoding='utf-8') as handle:
-              history = json.load(handle)
-          submissions = history.get('history', [])
-          print(f"notarytool credentials OK, visible submissions: {len(submissions)}")
-          PY
+      - name: Check source and tests
+        run: npm run check
 
-      - name: Publish temporary unsigned macOS DMG assets
+      - name: Build temporary unsigned macOS DMG
         if: ${{ inputs.macos_signing == 'unsigned' }}
-        run: npm run build:mac
+        run: npx electron-builder --mac dmg --universal --publish never -c.mac.identity=null -c.mac.notarize=false
         env:
-          GH_TOKEN: ${{ github.token }}
-          CSC_IDENTITY_AUTO_DISCOVERY: false
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
-      - name: Build signed macOS app
+      - name: Upload temporary unsigned macOS DMG
+        if: ${{ inputs.macos_signing == 'unsigned' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: ProjectFolderLauncher-macOS-UNSIGNED
+          path: dist/ProjectFolderLauncher-*-mac.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Build signed macOS application
         if: ${{ inputs.macos_signing == 'signed' }}
         timeout-minutes: 45
         shell: bash
         run: |
+          set -euo pipefail
           npx electron-builder --mac dir --universal --publish never -c.mac.notarize=false
           app_path="$(find dist -maxdepth 3 -name 'Project Folder Launcher.app' -type d | head -n 1)"
           if [ -z "$app_path" ]; then
-            echo "::error::Signed .app bundle was not generated."
-            find dist -maxdepth 4 -print
+            echo "::error::Signed application bundle was not generated."
             exit 1
           fi
+          codesign --verify --deep --strict --verbose=2 "$app_path"
           echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
-          echo "Signed app bundle: $app_path"
         env:
-          GH_TOKEN: ${{ github.token }}
           CSC_LINK: ${{ secrets.CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
 
-      - name: Notarize and staple macOS app
+      - name: Notarize and staple macOS application
         if: ${{ inputs.macos_signing == 'signed' }}
         timeout-minutes: 120
         shell: bash
@@ -152,150 +236,40 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
-
-          if [ -z "${APP_PATH:-}" ] || [ ! -d "$APP_PATH" ]; then
-            echo "::error::APP_PATH is missing or invalid: ${APP_PATH:-}"
-            exit 1
-          fi
-
           notary_zip="$RUNNER_TEMP/project-folder-launcher-notary.zip"
           ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$notary_zip"
-          echo "Submitting $notary_zip to Apple notarization."
-
           xcrun notarytool submit "$notary_zip" \
             --apple-id "$APPLE_ID" \
             --password "$APPLE_APP_SPECIFIC_PASSWORD" \
             --team-id "$APPLE_TEAM_ID" \
-            --output-format json > "$RUNNER_TEMP/notary-submit.json"
-
-          cat "$RUNNER_TEMP/notary-submit.json"
-
-          submission_id="$(python3 - <<'PY'
-          import json
-          import os
-          with open(os.environ["RUNNER_TEMP"] + "/notary-submit.json", "r", encoding="utf-8") as handle:
-              payload = json.load(handle)
-          print(payload.get("id", ""))
-          PY
-          )"
-
-          if [ -z "$submission_id" ]; then
-            echo "::error::Apple notarization did not return a submission id."
-            exit 1
-          fi
-
-          status=""
-          for attempt in $(seq 1 90); do
-            xcrun notarytool info "$submission_id" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" \
-              --output-format json > "$RUNNER_TEMP/notary-info.json"
-
-            status="$(python3 - <<'PY'
-          import json
-          import os
-          with open(os.environ["RUNNER_TEMP"] + "/notary-info.json", "r", encoding="utf-8") as handle:
-              payload = json.load(handle)
-          print(payload.get("status", "Unknown"))
-          PY
-          )"
-
-            echo "Apple notarization status for $submission_id: $status ($attempt/90)"
-
-            if [ "$status" = "Accepted" ]; then
-              break
-            fi
-
-            if [ "$status" = "Invalid" ] || [ "$status" = "Rejected" ]; then
-              xcrun notarytool log "$submission_id" \
-                --apple-id "$APPLE_ID" \
-                --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-                --team-id "$APPLE_TEAM_ID" || true
-              exit 1
-            fi
-
-            sleep 60
-          done
-
-          if [ "$status" != "Accepted" ]; then
-            echo "::error::Apple notarization timed out before acceptance."
-            xcrun notarytool log "$submission_id" \
-              --apple-id "$APPLE_ID" \
-              --password "$APPLE_APP_SPECIFIC_PASSWORD" \
-              --team-id "$APPLE_TEAM_ID" || true
-            exit 1
-          fi
-
+            --wait
           xcrun stapler staple "$APP_PATH"
           xcrun stapler validate "$APP_PATH"
+          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+          spctl --assess --type execute --verbose=2 "$APP_PATH"
 
-      - name: Package notarized macOS updater assets
+      - name: Package notarized macOS installer and updater assets
         if: ${{ inputs.macos_signing == 'signed' }}
         timeout-minutes: 45
         shell: bash
         run: |
-          if [ -z "${APP_PATH:-}" ] || [ ! -d "$APP_PATH" ]; then
-            echo "::error::APP_PATH is missing or invalid: ${APP_PATH:-}"
-            exit 1
-          fi
-          npx electron-builder --mac dmg zip --universal --prepackaged "$APP_PATH" --publish never -c.mac.notarize=false
+          set -euo pipefail
+          npx electron-builder --mac dmg zip --universal \
+            --prepackaged "$APP_PATH" \
+            --publish never \
+            -c.mac.notarize=false
+
+      - name: Publish signed macOS assets
+        if: ${{ inputs.macos_signing == 'signed' }}
+        shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-
-      - name: Attach macOS assets to the existing release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            const signingMode = '${{ inputs.macos_signing }}';
-
-            const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            const tag = `v${packageJson.version}`;
-            const release = await github.rest.repos.getReleaseByTag({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag
-            });
-
-            const distDir = path.join(process.cwd(), 'dist');
-            const assets = fs.readdirSync(distDir)
-              .filter((fileName) => {
-                const isDmg = /^ProjectFolderLauncher-.+-mac\.dmg$/.test(fileName);
-                const isZip = /^ProjectFolderLauncher-.+-mac\.zip$/.test(fileName);
-                const isMacUpdaterMetadata = fileName === 'latest-mac.yml';
-                return isDmg || (signingMode === 'signed' && (isZip || isMacUpdaterMetadata));
-              })
-              .sort();
-
-            if (assets.length === 0) {
-              core.setFailed('No macOS assets were generated in dist/.');
-              return;
-            }
-
-            for (const fileName of assets) {
-              const existingAsset = release.data.assets.find((asset) => asset.name === fileName);
-              if (existingAsset) {
-                await github.rest.repos.deleteReleaseAsset({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  asset_id: existingAsset.id
-                });
-              }
-
-              const filePath = path.join(distDir, fileName);
-              const data = fs.readFileSync(filePath);
-              await github.rest.repos.uploadReleaseAsset({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                release_id: release.data.id,
-                name: fileName,
-                data,
-                headers: {
-                  'content-type': 'application/octet-stream',
-                  'content-length': data.length
-                }
-              });
-              core.info(`Uploaded ${fileName}`);
-            }
+        run: |
+          set -euo pipefail
+          dmg="$(find dist -maxdepth 1 -name 'ProjectFolderLauncher-*-mac.dmg' -type f | head -n 1)"
+          zip="$(find dist -maxdepth 1 -name 'ProjectFolderLauncher-*-mac.zip' -type f | head -n 1)"
+          test -n "$dmg"
+          test -n "$zip"
+          test -f dist/latest-mac.yml
+          gh release view "$RELEASE_TAG"
+          gh release upload "$RELEASE_TAG" "$dmg" "$zip" dist/latest-mac.yml --clobber

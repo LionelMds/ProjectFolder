@@ -14,6 +14,7 @@ const miniBarCheck = document.getElementById('miniBarCheck');
 const saveBtn = document.getElementById('saveBtn');
 const cancelBtn = document.getElementById('cancelBtn');
 const closeBtn = document.getElementById('closeBtn');
+const settingsStatus = document.getElementById('settingsStatus');
 
 const isMac = navigator.platform.startsWith('Mac');
 const SHORTCUT_OPTIONS = ['Enter', 'Ctrl+Enter', 'Shift+Enter', 'Alt+Enter'];
@@ -75,7 +76,7 @@ function populateForm() {
 
     autoStartCheck.checked = Boolean(config.autoStart);
     miniBarCheck.checked = config.integrationMode !== 'hidden';
-    setCheckedRadioValue('openBehavior', config.openBehavior, config.reuseExplorerWindow ? 'reuseWindow' : 'newWindow');
+    setCheckedRadioValue('openBehavior', config.openBehavior, 'newWindow');
 
     applyPlatformLabels();
 }
@@ -388,11 +389,17 @@ async function handleSave() {
         openBehavior: OPEN_BEHAVIORS.includes(openBehavior) ? openBehavior : 'newWindow'
     };
 
+    saveBtn.disabled = true;
+    settingsStatus.textContent = 'Enregistrement...';
+    settingsStatus.className = 'settings-status';
     const result = await window.electronAPI.saveSettings(newConfig);
 
     if (result.success) {
         window.electronAPI.closeSettings();
     } else {
+        saveBtn.disabled = false;
+        settingsStatus.textContent = result.error || 'Impossible d’enregistrer les paramètres.';
+        settingsStatus.className = 'settings-status error';
         console.error('Failed to save settings:', result.error);
     }
 }

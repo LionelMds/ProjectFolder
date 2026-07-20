@@ -399,6 +399,7 @@ body {
 .settings-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     gap: 8px;
     padding: 12px 16px;
     border-top: 1px solid var(--border);
@@ -559,6 +560,18 @@ body.liquid-glass .subfolder-row {
     background: rgba(120, 120, 128, 0.08);
     border: 1px solid rgba(120, 120, 128, 0.12);
     border-radius: 8px;
+}
+
+.settings-status {
+    flex: 1;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.settings-status.error {
+    color: var(--danger);
 }
 
 body.liquid-glass .subfolder-row:hover {

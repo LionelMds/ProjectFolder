@@ -1,16 +1,19 @@
 {
   "name": "project-folder-launcher",
-  "version": "1.3.5",
+  "version": "1.4.0",
   "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --config.win.signAndEditExecutable=false",
-    "build:mac": "CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dmg",
+    "check": "node scripts/check-syntax.js && node --test",
+    "test": "node --test",
+    "build": "electron-builder --win",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac dmg zip",
     "build:all": "electron-builder --win --mac",
-    "release:win": "set CSC_IDENTITY_AUTO_DISCOVERY=false&& electron-builder --win --publish always --config.win.signAndEditExecutable=false",
-    "release:mac": "electron-builder --mac --publish never",
-    "release:mac:updater": "electron-builder --mac --publish never"
+    "release:win": "electron-builder --win --publish always",
+    "release:mac": "electron-builder --mac dmg zip --publish never",
+    "release:mac:updater": "electron-builder --mac dmg zip --publish never"
   },
   "keywords": [
     "electron",
@@ -21,9 +24,13 @@
   ],
   "author": "Lionel",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.12"
+  },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1"
+    "@electron/fuses": "^2.1.3",
+    "electron": "^43.1.1",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.balz.project-folder-launcher",
@@ -31,6 +38,12 @@
     "directories": {
       "output": "dist"
     },
+    "afterPack": "scripts/after-pack.js",
+    "asar": true,
+    "electronLanguages": [
+      "en",
+      "fr"
+    ],
     "electronUpdaterCompatibility": ">=2.16",
     "publish": [
       {
@@ -41,13 +54,22 @@
       }
     ],
     "files": [
-      "**/*",
-      "!dist/**",
-      "!config.json",
-      "!*.lnk",
-      "!.claude/**",
-      "!node_modules/**/README.md",
-      "!node_modules/**/CHANGELOG.md"
+      "main.js",
+      "preload.js",
+      "index.html",
+      "renderer.js",
+      "styles.css",
+      "mini-search.html",
+      "mini-renderer.js",
+      "mini-search.css",
+      "settings.html",
+      "settings-renderer.js",
+      "settings.css",
+      "update.html",
+      "update-renderer.js",
+      "update.css",
+      "src/main/**/*",
+      "assets/**/*"
     ],
     "win": {
       "target": [
@@ -110,6 +132,9 @@
     }
   },
   "dependencies": {
-    "electron-updater": "^6.8.3"
+    "electron-updater": "^6.8.9"
+  },
+  "overrides": {
+    "js-yaml": "5.2.1"
   }
 }

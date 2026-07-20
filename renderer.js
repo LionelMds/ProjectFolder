@@ -2,8 +2,11 @@ let config = null;
 let selectedSubfolderIndex = 0;
 let selectedRecentIndex = 0;
 let isValidProject = false;
+let isResolvingProject = false;
 let currentProjectInput = '';
 let filteredRecentFolders = [];
+let validationTimer = null;
+let validationRequestId = 0;
 
 const projectInput = document.getElementById('projectInput');
 const validationMessage = document.getElementById('validationMessage');
@@ -205,7 +208,10 @@ function setupEventListeners() {
 }
 
 function resetState() {
+    clearTimeout(validationTimer);
+    validationRequestId += 1;
     isValidProject = false;
+    isResolvingProject = false;
     currentProjectInput = '';
     selectedSubfolderIndex = 0;
     selectedRecentIndex = 0;
@@ -243,27 +249,34 @@ function showSubfolderList() {
 }
 
 function validateProject(value) {
+    clearTimeout(validationTimer);
+    const requestId = ++validationRequestId;
+
     if (value === '') {
         validationMessage.textContent = '';
         validationMessage.className = 'validation-message';
         isValidProject = false;
+        isResolvingProject = false;
+        currentProjectInput = '';
         showRecentList('');
         return;
     }
 
     if (digitsOnlyRegex.test(value) || fullProjectRegex.test(value)) {
-        currentProjectInput = value;
-        isValidProject = true;
-        validationMessage.textContent = `✓ Projet ${value}`;
-        validationMessage.className = 'validation-message valid';
-        selectedSubfolderIndex = 0;
-        showSubfolderList();
-        updateSubfolderSelection();
+        currentProjectInput = '';
+        isValidProject = false;
+        isResolvingProject = true;
+        validationMessage.textContent = 'Recherche du projet...';
+        validationMessage.className = 'validation-message info';
+        showRecentList(value);
+        validationTimer = setTimeout(() => resolveProject(value, requestId), 100);
         return;
     }
 
     if (/^\d{1,3}$/.test(value)) {
         isValidProject = false;
+        isResolvingProject = false;
+        currentProjectInput = '';
         validationMessage.textContent = 'Tapez 4 chiffres ou ouvrez un récent';
         validationMessage.className = 'validation-message info';
         selectedRecentIndex = 0;
@@ -272,7 +285,38 @@ function validateProject(value) {
     }
 
     isValidProject = false;
+    isResolvingProject = false;
+    currentProjectInput = '';
     validationMessage.textContent = '✕ Format invalide';
+    validationMessage.className = 'validation-message invalid';
+    showRecentList(value);
+}
+
+async function resolveProject(value, requestId) {
+    const result = await window.electronAPI.resolveProject(value);
+
+    if (requestId !== validationRequestId || projectInput.value.trim() !== value) {
+        return;
+    }
+
+    isResolvingProject = false;
+
+    if (result.success && result.found) {
+        currentProjectInput = value;
+        isValidProject = true;
+        validationMessage.textContent = `✓ Projet ${result.projectNumber}`;
+        validationMessage.className = 'validation-message valid';
+        selectedSubfolderIndex = 0;
+        showSubfolderList();
+        updateSubfolderSelection();
+        return;
+    }
+
+    currentProjectInput = '';
+    isValidProject = false;
+    validationMessage.textContent = result.success
+        ? '✕ Projet introuvable'
+        : `✕ ${result.error || 'Vérification impossible'}`;
     validationMessage.className = 'validation-message invalid';
     showRecentList(value);
 }
@@ -296,7 +340,9 @@ function handleKeydown(event) {
 
         case 'Enter':
             event.preventDefault();
-            if (isValidProject) {
+            if (isResolvingProject) {
+                break;
+            } else if (isValidProject) {
                 openByKeyboard(event);
             } else {
                 openRecentFolder(selectedRecentIndex);

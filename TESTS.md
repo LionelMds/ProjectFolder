@@ -1,5 +1,12 @@
 # Tests manuels - Project Folder Launcher
 
+## Tests automatiques
+
+1. Installer Node.js `22.12` ou plus récent.
+2. Lancer `npm ci`.
+3. Lancer `npm run check`.
+4. Vérifier que la syntaxe, tous les tests et `npm audit --audit-level=moderate` réussissent.
+
 ## Démarrage
 
 1. Lancer `npm install`.
@@ -15,11 +22,12 @@
 4. Taper un, deux puis trois chiffres et vérifier que les récents sont filtrés.
 5. Naviguer dans les récents avec `↑`, `↓` et `Tab`, puis ouvrir un récent avec `Enter`.
 6. Taper quatre chiffres correspondant à un projet existant, par exemple `4889`.
-7. Vérifier que le message de validation devient vert et que la liste des sous-dossiers remplace les récents.
-8. Naviguer avec `↑`, `↓` et `Tab`.
-9. Valider avec `Enter`, `Ctrl+Enter` et `Shift+Enter`.
-10. Rouvrir la recherche et vérifier que le dossier ouvert vient en haut des récents.
-11. Vérifier que `Escape` ferme la fenêtre sans ouvrir de dossier.
+7. Vérifier que "Recherche du projet..." apparaît brièvement, puis que le message devient vert seulement si le dossier existe réellement.
+8. Taper quatre chiffres inexistants et vérifier que "Projet introuvable" apparaît sans afficher les sous-dossiers.
+9. Naviguer avec `↑`, `↓` et `Tab`.
+10. Valider avec `Enter`, `Ctrl+Enter` et `Shift+Enter`.
+11. Rouvrir la recherche et vérifier que le dossier ouvert vient en haut des récents.
+12. Vérifier que `Escape` ferme la fenêtre sans ouvrir de dossier.
 
 ## Mini-barre flottante
 
@@ -29,7 +37,8 @@
 4. Vérifier que la mini-barre apparaît et qu'elle peut être déplacée.
 5. Redémarrer l'application et vérifier que la position est restaurée.
 6. Taper quatre chiffres et vérifier que les boutons emoji apparaissent après le redimensionnement.
-7. Cliquer sur chaque bouton emoji et vérifier que le sous-dossier correspondant s'ouvre.
+7. Taper quatre chiffres inexistants et vérifier que les boutons n'apparaissent pas.
+8. Cliquer sur chaque bouton emoji d'un projet valide et vérifier que le sous-dossier correspondant s'ouvre.
 
 ## Mini-barre épinglée Windows
 
@@ -46,16 +55,15 @@
 
 ## Popover barre de menus macOS
 
-1. Sur macOS, choisir "Popover barre de menus" dans Paramètres.
-2. Enregistrer.
-3. Cliquer sur l'icône de la barre de menus.
-4. Vérifier que le popover apparaît sous l'icône et reçoit le focus.
-5. Taper quatre chiffres, ouvrir un sous-dossier, puis vérifier que le popover se ferme.
-6. Cliquer hors du popover et vérifier qu'il se ferme automatiquement.
+1. Sur macOS, cliquer sur le bouton d'épinglage de la mini-barre.
+2. Cliquer sur l'icône de la barre de menus.
+3. Vérifier que le popover apparaît sous l'icône et reçoit le focus.
+4. Taper quatre chiffres, ouvrir un sous-dossier, puis vérifier que le popover se ferme.
+5. Cliquer hors du popover et vérifier qu'il se ferme automatiquement.
 
 ## Mode masqué
 
-1. Choisir "Masquée" dans Paramètres.
+1. Désactiver "Afficher la mini-barre" dans Paramètres.
 2. Enregistrer.
 3. Vérifier qu'aucune mini-barre n'est visible.
 4. Vérifier que la recherche principale reste disponible via tray et raccourci global.
@@ -67,10 +75,11 @@
 2. Vérifier qu'une nouvelle fenêtre s'ouvre.
 3. Choisir "Nouvel onglet dans la fenêtre active" et ouvrir un projet.
 4. Sur Windows 11, vérifier qu'un nouvel onglet Explorer est créé quand une fenêtre Explorer existe.
-5. Sur macOS, vérifier qu'un nouvel onglet Finder est créé quand une fenêtre Finder existe.
-6. Choisir "Réutiliser la fenêtre active" et ouvrir un projet.
-7. Vérifier que la fenêtre Explorer ou Finder existante change de dossier.
-8. Fermer toutes les fenêtres Explorer/Finder puis répéter les tests pour vérifier le fallback vers une nouvelle fenêtre.
+5. Vérifier que le chemin apparaît instantanément, sans saisie caractère par caractère, et qu'aucun onglet "Ce PC" ne reste devant.
+6. Sur macOS, vérifier qu'un nouvel onglet Finder est créé quand une fenêtre Finder existe.
+7. Choisir "Réutiliser la fenêtre active" et ouvrir un projet.
+8. Vérifier que la fenêtre Explorer ou Finder existante change de dossier sans créer un onglet "Ce PC".
+9. Fermer toutes les fenêtres Explorer/Finder puis répéter les tests pour vérifier le fallback vers une nouvelle fenêtre.
 
 ## Paramètres
 
@@ -81,7 +90,8 @@
 5. Déplacer le sous-dossier avec `▲` et `▼`.
 6. Supprimer le sous-dossier.
 7. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
-8. Activer et désactiver le démarrage automatique.
+8. Essayer un raccourci déjà utilisé et vérifier que l'erreur est visible et que l'ancien raccourci continue de fonctionner.
+9. Activer et désactiver le démarrage automatique.
 
 ## Tray et menu
 
@@ -89,7 +99,7 @@
 2. Clic droit sur l'icône tray Windows : le menu contextuel s'ouvre.
 3. Sur macOS en mode popover, clic gauche : le popover s'ouvre.
 4. Sur macOS, clic droit : le menu contextuel s'ouvre.
-5. Basculer entre les trois modes d'intégration depuis le menu tray.
+5. Afficher ou masquer la mini-barre depuis le tray et utiliser son bouton d'épinglage pour changer de mode.
 6. Ouvrir Paramètres depuis le tray.
 7. Quitter depuis le tray et vérifier que le processus se ferme.
 
@@ -99,6 +109,7 @@
 2. Ouvrir un projet valide et un projet invalide.
 3. Ouvrir le fichier `.projectLauncher.log` dans le dossier `userData` d'Electron.
 4. Vérifier que les événements importants et les erreurs y sont enregistrés.
+5. Vérifier qu'un journal dépassant 2 Mo est déplacé vers `.projectLauncher.log.1`.
 
 ## Build Windows
 
@@ -109,15 +120,16 @@
 
 ## Mises à jour automatiques Windows
 
-1. Publier une version `vX.Y.Z` sur GitHub avec `npm run release:win`.
+1. Créer une release et un tag `vX.Y.Z` correspondant à `package.json`.
 2. Installer cette version.
 3. Incrémenter `package.json` vers une version supérieure.
-4. Publier la nouvelle version avec `npm run release:win`.
+4. Lancer `Publish release assets` avec `windows_signing=signed`.
 5. Lancer l'ancienne version installée.
-6. Vérifier que la fenêtre de mise à jour signale la nouvelle version.
-7. Cliquer sur "Télécharger et installer".
-8. Vérifier la barre de téléchargement, la vitesse et la progression.
-9. Vérifier que l'application se ferme, que l'installateur démarre, puis que l'application se relance après installation.
+6. Vérifier qu'une notification système signale la version une seule fois, sans ouvrir la fenêtre de mise à jour.
+7. Redémarrer l'application et vérifier qu'aucune notification ni fenêtre ne réapparaît.
+8. Ouvrir le menu de l'icône, cliquer sur la mise à jour disponible, puis sur "Télécharger et installer".
+9. Vérifier la barre de téléchargement, la vitesse et la progression.
+10. Vérifier que l'application se ferme, que l'installateur démarre, puis que l'application se relance après installation.
 
 ## Build macOS
 
@@ -134,6 +146,7 @@
 3. Installer cette version depuis le DMG.
 4. Publier une version supérieure avec le même workflow signé.
 5. Lancer l'ancienne version installée.
-6. Vérifier que la fenêtre de mise à jour signale la nouvelle version.
-7. Cliquer sur "Télécharger et installer".
-8. Vérifier la barre de téléchargement, la progression, l'installation et le redémarrage.
+6. Vérifier qu'une notification système signale la version une seule fois, sans ouvrir la fenêtre de mise à jour.
+7. Redémarrer l'application et vérifier qu'aucune notification ni fenêtre ne réapparaît.
+8. Ouvrir la mise à jour depuis le menu de l'icône et cliquer sur "Télécharger et installer".
+9. Vérifier la barre de téléchargement, la progression, l'installation et le redémarrage.
