@@ -237,6 +237,8 @@ jobs:
           arm64_app="$(find dist/mac-arm64 -name 'Project Folder Launcher.app' -type d | head -n 1)"
           test -n "$x64_app"
           test -n "$arm64_app"
+          x64_app="$PWD/$x64_app"
+          arm64_app="$PWD/$arm64_app"
 
           find "$x64_app" "$arm64_app" -type d -name '_CodeSignature' -prune -exec rm -rf {} +
           find "$x64_app" "$arm64_app" -type l -name 'CodeResources' -delete
