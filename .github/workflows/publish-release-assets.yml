@@ -193,6 +193,13 @@ jobs:
       - name: Check source and tests
         run: npm run check
 
+      - name: Import Apple Developer certificate
+        if: ${{ inputs.macos_signing == 'signed' }}
+        uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d
+        with:
+          p12-file-base64: ${{ secrets.CSC_LINK }}
+          p12-password: ${{ secrets.CSC_KEY_PASSWORD }}
+
       - name: Build temporary unsigned macOS DMG
         if: ${{ inputs.macos_signing == 'unsigned' }}
         run: npx electron-builder --mac dmg --universal --publish never -c.mac.identity=null -c.mac.notarize=false
@@ -214,17 +221,77 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          npx electron-builder --mac dir --universal --publish never -c.mac.notarize=false
-          app_path="$(find dist -maxdepth 3 -name 'Project Folder Launcher.app' -type d | head -n 1)"
-          if [ -z "$app_path" ]; then
-            echo "::error::Signed application bundle was not generated."
-            exit 1
-          fi
+
+          npx electron-builder --mac dir --x64 \
+            --publish never \
+            -c.directories.output=dist/mac-x64 \
+            -c.mac.identity=null \
+            -c.mac.notarize=false
+          npx electron-builder --mac dir --arm64 \
+            --publish never \
+            -c.directories.output=dist/mac-arm64 \
+            -c.mac.identity=null \
+            -c.mac.notarize=false
+
+          x64_app="$(find dist/mac-x64 -name 'Project Folder Launcher.app' -type d | head -n 1)"
+          arm64_app="$(find dist/mac-arm64 -name 'Project Folder Launcher.app' -type d | head -n 1)"
+          test -n "$x64_app"
+          test -n "$arm64_app"
+
+          find "$x64_app" "$arm64_app" -type d -name '_CodeSignature' -prune -exec rm -rf {} +
+          find "$x64_app" "$arm64_app" -type l -name 'CodeResources' -delete
+
+          app_path="$PWD/dist/mac-universal/Project Folder Launcher.app"
+          X64_APP="$x64_app" ARM64_APP="$arm64_app" OUT_APP="$app_path" node <<'NODE'
+          const { makeUniversalApp } = require('@electron/universal');
+
+          makeUniversalApp({
+            x64AppPath: process.env.X64_APP,
+            arm64AppPath: process.env.ARM64_APP,
+            outAppPath: process.env.OUT_APP,
+            force: true,
+            mergeASARs: true
+          }).catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
+
+          APP_PATH_TO_SIGN="$app_path" node <<'NODE'
+          const path = require('node:path');
+          const { signAsync } = require('@electron/osx-sign');
+
+          const appPath = path.resolve(process.env.APP_PATH_TO_SIGN);
+          const mainEntitlements = path.resolve('build/entitlements.mac.plist');
+          const inheritedEntitlements = path.resolve('build/entitlements.mac.inherit.plist');
+
+          signAsync({
+            app: appPath,
+            keychain: 'signing_temp',
+            platform: 'darwin',
+            type: 'distribution',
+            hardenedRuntime: true,
+            preAutoEntitlements: false,
+            preEmbedProvisioningProfile: false,
+            strictVerify: true,
+            optionsForFile(filePath) {
+              return {
+                entitlements: path.resolve(filePath) === appPath
+                  ? mainEntitlements
+                  : inheritedEntitlements,
+                hardenedRuntime: true
+              };
+            }
+          }).catch(error => {
+            console.error(error);
+            process.exitCode = 1;
+          });
+          NODE
+
           codesign --verify --deep --strict --verbose=2 "$app_path"
           echo "APP_PATH=$app_path" >> "$GITHUB_ENV"
         env:
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Notarize and staple macOS application
         if: ${{ inputs.macos_signing == 'signed' }}
@@ -257,7 +324,10 @@ jobs:
           npx electron-builder --mac dmg zip --universal \
             --prepackaged "$APP_PATH" \
             --publish never \
+            -c.mac.identity=null \
             -c.mac.notarize=false
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Publish signed macOS assets
         if: ${{ inputs.macos_signing == 'signed' }}
