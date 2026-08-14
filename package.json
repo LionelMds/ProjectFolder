@@ -1,6 +1,6 @@
 {
   "name": "project-folder-launcher",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
   "main": "main.js",
   "scripts": {
@@ -135,6 +135,6 @@
     "electron-updater": "^6.8.9"
   },
   "overrides": {
-    "js-yaml": "5.2.1"
+    "js-yaml": "5.2.3"
   }
 }

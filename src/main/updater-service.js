@@ -1,6 +1,5 @@
 'use strict';
 
-const { UPDATE_CHECK_INTERVAL_MS } = require('./constants');
 const { isMac, isWindows } = require('./platform');
 
 class UpdaterService {
@@ -9,16 +8,10 @@ class UpdaterService {
     this.app = options.app;
     this.logger = options.logger;
     this.windowManager = options.windowManager;
-    this.notifyAvailable = options.notifyAvailable;
-    this.shouldNotifyVersion = options.shouldNotifyVersion || (() => true);
-    this.markVersionNotified = options.markVersionNotified || (() => {});
     this.platform = options.platform || process.platform;
-    this.updateCheckIntervalMs = options.updateCheckIntervalMs || UPDATE_CHECK_INTERVAL_MS;
     this.pendingUpdateInfo = null;
     this.downloadPromise = null;
     this.installationRequested = false;
-    this.checkTimer = null;
-    this.initialCheckTimer = null;
     this.handlers = new Map();
     this.lastLoggedStatus = null;
     this.lastLoggedProgressBucket = -1;
@@ -49,7 +42,7 @@ class UpdaterService {
 
     this.autoUpdater.logger = this.logger.createUpdaterLogger();
     this.autoUpdater.autoDownload = false;
-    this.autoUpdater.autoInstallOnAppQuit = true;
+    this.autoUpdater.autoInstallOnAppQuit = false;
     this.autoUpdater.autoRunAppAfterInstall = true;
     this.autoUpdater.allowPrerelease = false;
     this.autoUpdater.allowDowngrade = false;
@@ -80,12 +73,6 @@ class UpdaterService {
 
       if (this.state.manual) {
         this.windowManager.showUpdateWindow(this.state);
-        return;
-      }
-
-      if (this.shouldNotifyVersion(info.version)) {
-        this.markVersionNotified(info.version);
-        this.notifyAvailable(info, () => this.windowManager.showUpdateWindow(this.state));
       }
     });
 
@@ -105,6 +92,10 @@ class UpdaterService {
     });
 
     this.on('download-progress', progress => {
+      if (!this.state.manual) {
+        this.logger.warn('Unsolicited updater download progress ignored');
+        return;
+      }
       const percent = Math.max(0, Math.min(Number(progress.percent) || 0, 100));
       this.windowManager.setProgressBar(percent / 100);
       this.setState({
@@ -120,6 +111,10 @@ class UpdaterService {
     });
 
     this.on('update-downloaded', info => {
+      if (!this.state.manual) {
+        this.logger.warn('Unsolicited downloaded update ignored');
+        return;
+      }
       this.downloadPromise = null;
       this.windowManager.setProgressBar(-1);
       this.setState({
@@ -187,7 +182,12 @@ class UpdaterService {
   }
 
   async check(manual = false) {
-    this.setState({ manual: Boolean(manual) });
+    if (!manual) {
+      this.logger.info('Automatic update check skipped; manual action required');
+      return { success: true, skipped: true };
+    }
+
+    this.setState({ manual: true });
 
     if (!this.supported) {
       this.setState({
@@ -231,6 +231,7 @@ class UpdaterService {
   }
 
   async openUpdateCenter() {
+    this.setState({ manual: true });
     if (['available', 'downloading', 'ready', 'installing'].includes(this.state.status)) {
       this.windowManager.showUpdateWindow(this.state);
       return { success: true, status: this.state.status };
@@ -240,6 +241,7 @@ class UpdaterService {
   }
 
   async startDownload() {
+    this.setState({ manual: true });
     if (!this.supported) {
       await this.check(true);
       return { success: true, disabled: true };
@@ -341,48 +343,15 @@ class UpdaterService {
     this.logger.info('Updater installation shutdown prepared');
   }
 
-  schedule() {
-    if (!this.supported) {
-      return;
-    }
-
-    this.initialCheckTimer = setTimeout(() => {
-      this.check(false).catch(error => {
-        this.logger.error('Scheduled update check failed', { error: error.message });
-      });
-    }, 15000);
-
-    this.checkTimer = setInterval(() => {
-      this.check(false).catch(error => {
-        this.logger.error('Scheduled update check failed', { error: error.message });
-      });
-    }, this.updateCheckIntervalMs);
-
-    if (typeof this.initialCheckTimer.unref === 'function') {
-      this.initialCheckTimer.unref();
-    }
-    if (typeof this.checkTimer.unref === 'function') {
-      this.checkTimer.unref();
-    }
-  }
-
   closeWindow() {
     if (this.state.status !== 'installing' && this.state.status !== 'downloading') {
       this.windowManager.closeUpdateWindow();
+      this.setState({ manual: false });
     }
     return { success: true };
   }
 
   dispose() {
-    if (this.initialCheckTimer) {
-      clearTimeout(this.initialCheckTimer);
-      this.initialCheckTimer = null;
-    }
-    if (this.checkTimer) {
-      clearInterval(this.checkTimer);
-      this.checkTimer = null;
-    }
-
     for (const [eventName, handler] of this.handlers) {
       this.autoUpdater.removeListener(eventName, handler);
     }

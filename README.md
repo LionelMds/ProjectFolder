@@ -61,7 +61,7 @@ L'installateur NSIS est généré dans `dist/`. Un build local sans certificat r
 
 Les mises à jour utilisent GitHub Releases via `electron-updater`. La publication de production passe par le workflow `Publish release assets`, avec un tag `vX.Y.Z` correspondant exactement à la version de `package.json`.
 
-La vérification automatique reste silencieuse au démarrage. Une nouvelle version est signalée une seule fois par une notification système, sans ouvrir de fenêtre, puis demeure accessible depuis le menu de l'icône de l'application.
+La recherche de mise à jour est exclusivement manuelle depuis le menu de l'icône de l'application. Aucun contrôle réseau, aucune notification et aucune fenêtre de mise à jour ne sont déclenchés au démarrage, à l'ouverture de session ou à la sortie de veille.
 
 Secrets Windows requis :
 

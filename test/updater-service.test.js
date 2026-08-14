@@ -21,8 +21,7 @@ test('manual update checks explain development mode without contacting GitHub', 
     },
     logger: createLoggerMock(),
     windowManager: windows,
-    platform: 'win32',
-    notifyAvailable: () => {}
+    platform: 'win32'
   });
   service.configure();
 
@@ -47,10 +46,10 @@ test('download progress updates both the dialog and system progress', () => {
     },
     logger: createLoggerMock(),
     windowManager: windows,
-    platform: 'win32',
-    notifyAvailable: () => {}
+    platform: 'win32'
   });
   service.configure();
+  service.state.manual = true;
 
   updater.emit('download-progress', {
     percent: 42.5,
@@ -66,11 +65,9 @@ test('download progress updates both the dialog and system progress', () => {
   service.dispose();
 });
 
-test('background update availability notifies once without opening a window', () => {
+test('non-manual update checks never contact GitHub or open a window', async () => {
   const updater = new MockUpdater();
   const windows = createWindowManagerMock();
-  const notifications = [];
-  let notifiedVersion = null;
   const service = new UpdaterService({
     autoUpdater: updater,
     app: {
@@ -80,29 +77,74 @@ test('background update availability notifies once without opening a window', ()
     },
     logger: createLoggerMock(),
     windowManager: windows,
-    platform: 'win32',
-    notifyAvailable: info => notifications.push(info.version),
-    shouldNotifyVersion: version => notifiedVersion !== version,
-    markVersionNotified: version => {
-      notifiedVersion = version;
-    }
+    platform: 'win32'
+  });
+  service.configure();
+
+  const result = await service.check(false);
+
+  assert.equal(result.skipped, true);
+  assert.equal(updater.checkCalls, 0);
+  assert.equal(service.state.status, 'idle');
+  assert.equal(windows.shownStates.length, 0);
+  service.dispose();
+});
+
+test('manual packaged update checks contact GitHub and open the update window', async () => {
+  const updater = new MockUpdater();
+  const windows = createWindowManagerMock();
+  const service = new UpdaterService({
+    autoUpdater: updater,
+    app: {
+      getVersion: () => '1.4.0',
+      isPackaged: true,
+      isQuitting: false
+    },
+    logger: createLoggerMock(),
+    windowManager: windows,
+    platform: 'win32'
+  });
+  service.configure();
+
+  const result = await service.check(true);
+
+  assert.equal(result.success, true);
+  assert.equal(updater.checkCalls, 1);
+  assert.equal(service.state.manual, true);
+  assert.equal(windows.shownStates.length, 1);
+  service.dispose();
+});
+
+test('an unsolicited updater event never opens a window', () => {
+  const updater = new MockUpdater();
+  const windows = createWindowManagerMock();
+  const service = new UpdaterService({
+    autoUpdater: updater,
+    app: {
+      getVersion: () => '1.4.0',
+      isPackaged: true,
+      isQuitting: false
+    },
+    logger: createLoggerMock(),
+    windowManager: windows,
+    platform: 'win32'
   });
   service.configure();
 
   updater.emit('update-available', { version: '1.5.0' });
-  updater.emit('update-available', { version: '1.5.0' });
+  updater.emit('download-progress', { percent: 50, total: 100, transferred: 50 });
+  updater.emit('update-downloaded', { version: '1.5.0' });
 
-  assert.deepEqual(notifications, ['1.5.0']);
-  assert.equal(notifiedVersion, '1.5.0');
   assert.equal(windows.shownStates.length, 0);
-  assert.equal(windows.trayUpdates, 2);
+  assert.deepEqual(windows.progress, []);
+  assert.equal(updater.quitAndInstallCalls, 0);
+  assert.equal(updater.autoInstallOnAppQuit, false);
   service.dispose();
 });
 
-test('manual update availability opens the window without a native notification', () => {
+test('manual update availability opens the update window', () => {
   const updater = new MockUpdater();
   const windows = createWindowManagerMock();
-  const notifications = [];
   const service = new UpdaterService({
     autoUpdater: updater,
     app: {
@@ -112,8 +154,7 @@ test('manual update availability opens the window without a native notification'
     },
     logger: createLoggerMock(),
     windowManager: windows,
-    platform: 'win32',
-    notifyAvailable: info => notifications.push(info.version)
+    platform: 'win32'
   });
   service.configure();
   service.state.manual = true;
@@ -121,7 +162,6 @@ test('manual update availability opens the window without a native notification'
   updater.emit('update-available', { version: '1.5.0' });
 
   assert.equal(windows.shownStates.length, 1);
-  assert.deepEqual(notifications, []);
   service.dispose();
 });
 
@@ -137,8 +177,7 @@ test('background update errors stay silent', () => {
     },
     logger: createLoggerMock(),
     windowManager: windows,
-    platform: 'win32',
-    notifyAvailable: () => {}
+    platform: 'win32'
   });
   service.configure();
 
@@ -166,6 +205,7 @@ class MockUpdater extends EventEmitter {
   constructor() {
     super();
     this.checkCalls = 0;
+    this.quitAndInstallCalls = 0;
   }
 
   async checkForUpdates() {
@@ -176,7 +216,9 @@ class MockUpdater extends EventEmitter {
     return [];
   }
 
-  quitAndInstall() {}
+  quitAndInstall() {
+    this.quitAndInstallCalls += 1;
+  }
 }
 
 function createLoggerMock() {

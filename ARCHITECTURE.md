@@ -14,7 +14,7 @@ Project Folder Launcher conserve une interface vanilla HTML/CSS/JavaScript. La r
 | `project-service.js` | Résolution des quatre chiffres, vérification sur disque et confinement des chemins |
 | `window-manager.js` | Fenêtres, mini-barre, tray, multi-écrans et progression système |
 | `folder-openers/` | Stratégies Explorer/Finder et replis |
-| `updater-service.js` | États de mise à jour, téléchargement, installation et planification |
+| `updater-service.js` | Recherche manuelle, téléchargement et installation des mises à jour |
 | `security.js` | Sandbox renderer, blocage navigation/webview et rôles des fenêtres |
 | `ipc-router.js` | Autorisation IPC par rôle et gestion uniforme des erreurs |
 | `logger.js` | Journal asynchrone avec rotation |

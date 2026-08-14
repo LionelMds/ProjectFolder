@@ -118,16 +118,16 @@
 3. Installer l'application.
 4. Vérifier le choix du dossier d'installation, le raccourci bureau, le raccourci menu Démarrer et l'option de lancement après installation.
 
-## Mises à jour automatiques Windows
+## Mises à jour Windows
 
 1. Créer une release et un tag `vX.Y.Z` correspondant à `package.json`.
 2. Installer cette version.
 3. Incrémenter `package.json` vers une version supérieure.
 4. Lancer `Publish release assets` avec `windows_signing=signed`.
 5. Lancer l'ancienne version installée.
-6. Vérifier qu'une notification système signale la version une seule fois, sans ouvrir la fenêtre de mise à jour.
-7. Redémarrer l'application et vérifier qu'aucune notification ni fenêtre ne réapparaît.
-8. Ouvrir le menu de l'icône, cliquer sur la mise à jour disponible, puis sur "Télécharger et installer".
+6. Attendre au moins 30 secondes et vérifier qu'aucune recherche, notification ou fenêtre de mise à jour n'apparaît.
+7. Redémarrer l'application, verrouiller puis déverrouiller la session et effectuer une sortie de veille ; vérifier que l'updater ne s'affiche jamais.
+8. Ouvrir le menu de l'icône, cliquer sur "Vérifier les mises à jour...", puis sur "Télécharger et installer".
 9. Vérifier la barre de téléchargement, la vitesse et la progression.
 10. Vérifier que l'application se ferme, que l'installateur démarre, puis que l'application se relance après installation.
 
@@ -139,14 +139,14 @@
 4. Installer l'application dans `/Applications`.
 5. Vérifier l'icône de barre de menus, le popover, les onglets Finder et le démarrage automatique.
 
-## Mises à jour automatiques macOS
+## Mises à jour macOS
 
 1. Publier une version macOS signée/notarisée avec le workflow `Publish release assets`, `platform=macos`, `macos_signing=signed`.
 2. Vérifier que la release contient le DMG universel, le ZIP universel et `latest-mac.yml`.
 3. Installer cette version depuis le DMG.
 4. Publier une version supérieure avec le même workflow signé.
 5. Lancer l'ancienne version installée.
-6. Vérifier qu'une notification système signale la version une seule fois, sans ouvrir la fenêtre de mise à jour.
-7. Redémarrer l'application et vérifier qu'aucune notification ni fenêtre ne réapparaît.
-8. Ouvrir la mise à jour depuis le menu de l'icône et cliquer sur "Télécharger et installer".
+6. Vérifier qu'aucune recherche, notification ou fenêtre de mise à jour n'apparaît spontanément.
+7. Redémarrer l'application et effectuer une sortie de veille ; vérifier que l'updater reste invisible.
+8. Ouvrir le menu de l'icône, cliquer sur "Vérifier les mises à jour...", puis sur "Télécharger et installer".
 9. Vérifier la barre de téléchargement, la progression, l'installation et le redémarrage.

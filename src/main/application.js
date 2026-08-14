@@ -78,16 +78,7 @@ class ApplicationController {
       app,
       logger: this.logger,
       windowManager: this.windowManager,
-      platform: this.platform,
-      notifyAvailable: (info, onClick) => this.notifyUpdateAvailable(info, onClick),
-      shouldNotifyVersion: version => (
-        this.configStore.config.updates.lastNotifiedVersion !== version
-      ),
-      markVersionNotified: version => {
-        this.configStore.update(config => {
-          config.updates.lastNotifiedVersion = version;
-        });
-      }
+      platform: this.platform
     });
     this.ipcRouter = new IpcRouter({
       ipcMain: this.electron.ipcMain,
@@ -115,7 +106,6 @@ class ApplicationController {
     this.setupAutoLaunch();
     this.windowManager.createAll();
     this.registerInitialGlobalShortcut();
-    this.updaterService.schedule();
     this.registerDisplayListeners();
 
     if (!this.configStore.config.racine) {
@@ -402,21 +392,6 @@ class ApplicationController {
       );
     });
     this.windowManager.broadcastConfigUpdated();
-  }
-
-  notifyUpdateAvailable(info, onClick) {
-    const { Notification } = this.electron;
-    if (!Notification.isSupported()) {
-      return false;
-    }
-
-    const notification = new Notification({
-      title: APP_NAME,
-      body: `Mise à jour ${info.version} disponible`
-    });
-    notification.on('click', onClick);
-    notification.show();
-    return true;
   }
 
   notifyError(title, error) {
