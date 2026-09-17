@@ -103,6 +103,16 @@
 6. Ouvrir Paramètres depuis le tray.
 7. Quitter depuis le tray et vérifier que le processus se ferme.
 
+## Taille des fenetres Explorer et Finder
+
+1. Ouvrir un projet dans chacun des modes : nouvelle fenetre, nouvel onglet, reutilisation.
+2. Verifier que la fenetre du dossier est centree a environ 70 % de la largeur et de la hauteur utiles de son ecran, hors barre des taches ou Dock.
+3. Recommencer avec Explorer minimise, maximise, puis presque aussi grand que l'ecran ; verifier le retour a la taille centree.
+4. Refaire le test sur un ecran secondaire, notamment place a gauche ou au-dessus du principal, avec des facteurs de zoom differents (100 %, 150 %, 200 %).
+5. Fermer les fenetres Explorer/Finder puis ouvrir un projet et un dossier recent ; verifier la taille de la nouvelle fenetre et le dossier cible.
+6. Garder une autre fenetre ouverte sur un dossier different ; verifier qu'elle ne change pas de taille lors d'une ouverture en nouvelle fenetre.
+7. Verifier qu'il reste possible de redimensionner ou maximiser la fenetre manuellement apres l'ouverture.
+
 ## Logs
 
 1. Lancer l'application.

@@ -70,6 +70,7 @@ class ApplicationController {
     this.projectService = new ProjectService(() => this.configStore.config);
     this.folderOpener = new FolderOpener({
       shell: this.electron.shell,
+      screen: this.electron.screen,
       logger: this.logger,
       platform: this.platform
     });

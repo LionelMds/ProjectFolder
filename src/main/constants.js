@@ -5,6 +5,7 @@ const CONFIG_SCHEMA_VERSION = 3;
 const MAIN_WINDOW_SIZE = Object.freeze({ width: 450, height: 400 });
 const SETTINGS_WINDOW_SIZE = Object.freeze({ width: 680, height: 760 });
 const UPDATE_WINDOW_SIZE = Object.freeze({ width: 620, height: 560 });
+const FOLDER_WINDOW_SCALE = 0.7;
 const MINI_BASE_WIDTH = 260;
 const MINI_MAX_WIDTH = 520;
 const MINI_DEFAULT_HEIGHT = 44;
@@ -30,6 +31,7 @@ module.exports = {
   MAIN_WINDOW_SIZE,
   SETTINGS_WINDOW_SIZE,
   UPDATE_WINDOW_SIZE,
+  FOLDER_WINDOW_SCALE,
   MINI_BASE_WIDTH,
   MINI_MAX_WIDTH,
   MINI_DEFAULT_HEIGHT,
