@@ -19,6 +19,14 @@ test('Explorer scripts escape apostrophes and select the requested behavior', ()
   assert.doesNotMatch(script, /-ArgumentList \$Path/);
 });
 
+test('Explorer sizing only applies to newly created windows', () => {
+  const script = buildWindowsExplorerComNavigationScript('C:\Temp', 'reuseWindow');
+  const sizedCalls = script.match(/Activate-ExplorerWindow \S+ \$true/g) || [];
+
+  assert.deepEqual(sizedCalls, ['Activate-ExplorerWindow $window $true']);
+  assert.match(script, /-not \$beforeHandles\.ContainsKey\(\$handle\)\) \{\s*Activate-ExplorerWindow \$window \$true/);
+});
+
 test('the generated Explorer PowerShell is syntactically valid', {
   skip: process.platform !== 'win32'
 }, () => {

@@ -309,8 +309,9 @@ function Open-InNewExplorerWindow([string]$Path) {
           if ([int64]$window.HWND -eq $foregroundHwnd) { $matchingForeground = $window }
         }
       }
+      # Explorer focused a window that was already open: keep its size.
       if ($null -ne $matchingForeground) {
-        Activate-ExplorerWindow $matchingForeground $true | Out-Null
+        Activate-ExplorerWindow $matchingForeground | Out-Null
         return
       }
       Start-Sleep -Milliseconds 35
@@ -329,7 +330,7 @@ function Navigate-ReuseWindow($Shell, [string]$Path) {
     return
   }
 
-  Activate-ExplorerWindow $target $true | Out-Null
+  Activate-ExplorerWindow $target | Out-Null
   if (Invoke-ExplorerNavigate $target $Path 900) {
     Write-Output 'opened:reuse-window:com'
     return
@@ -353,7 +354,7 @@ function Navigate-NewTab($Shell, [string]$Path) {
   }
 
   $beforeWindows = @(Get-ExplorerWindows $Shell)
-  Activate-ExplorerWindow $target $true | Out-Null
+  Activate-ExplorerWindow $target | Out-Null
   [System.Windows.Forms.SendKeys]::SendWait('^t')
 
   $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500

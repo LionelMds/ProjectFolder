@@ -1,6 +1,6 @@
 {
   "name": "project-folder-launcher",
-  "version": "1.4.2",
+  "version": "1.4.3",
   "description": "Barre de recherche rapide pour ouvrir les dossiers projets",
   "main": "main.js",
   "scripts": {

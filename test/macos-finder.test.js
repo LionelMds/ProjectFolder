@@ -8,6 +8,16 @@ const { spawnSync } = require('child_process');
 const test = require('node:test');
 const { buildFinderNavigationScript } = require('../src/main/folder-openers/macos-finder');
 
+test('Finder sizing only applies to newly created windows', () => {
+  for (const mode of ['newWindow', 'newTab', 'reuseWindow']) {
+    const script = buildFinderNavigationScript('/Users/Test', mode, [
+      { x: 0, y: 25, width: 1440, height: 835 }
+    ]);
+    assert.match(script, /if isNewWindow then my fitFinderWindow\(targetWindow\)/);
+    assert.equal(script.match(/my fitFinderWindow/g).length, 1);
+  }
+});
+
 test('Finder scripts compile for each opening mode with multiple displays', {
   skip: process.platform !== 'darwin'
 }, () => {
