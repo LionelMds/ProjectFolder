@@ -23,6 +23,7 @@ public class ProjectLauncherWin32 {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
   [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
   [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
   [DllImport("user32.dll", CharSet = CharSet.Auto)]
   public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
@@ -222,7 +223,10 @@ function Activate-ExplorerWindow($Window, [bool]$FitSize = $false) {
         }
       } catch { Write-Warning ('Explorer window sizing failed: ' + $_.Exception.Message) }
     }
-    [ProjectLauncherWin32]::ShowWindow($hwnd, 9) | Out-Null
+    # Restoring a maximized window would shrink it: only restore minimized ones.
+    if ([ProjectLauncherWin32]::IsIconic($hwnd)) {
+      [ProjectLauncherWin32]::ShowWindow($hwnd, 9) | Out-Null
+    }
     [ProjectLauncherWin32]::SetForegroundWindow($hwnd) | Out-Null
     Start-Sleep -Milliseconds 80
     return $true

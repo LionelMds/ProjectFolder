@@ -24,6 +24,7 @@ test('Explorer sizing only applies to newly created windows', () => {
   const sizedCalls = script.match(/Activate-ExplorerWindow \S+ \$true/g) || [];
 
   assert.deepEqual(sizedCalls, ['Activate-ExplorerWindow $window $true']);
+  assert.match(script, /if \(\[ProjectLauncherWin32\]::IsIconic\(\$hwnd\)\) \{\s*\[ProjectLauncherWin32\]::ShowWindow\(\$hwnd, 9\)/);
   assert.match(script, /-not \$beforeHandles\.ContainsKey\(\$handle\)\) \{\s*Activate-ExplorerWindow \$window \$true/);
 });
 
