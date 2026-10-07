@@ -7,13 +7,16 @@ const {
   MAIN_WINDOW_SIZE,
   MINI_BASE_WIDTH,
   MINI_DEFAULT_HEIGHT,
+  MINI_EDGE_PADDING,
   SETTINGS_WINDOW_SIZE,
   UPDATE_WINDOW_SIZE,
   VALID_INTEGRATION_MODES
 } = require('./constants');
 const { isMac, isWindows } = require('./platform');
+const { formatAccelerator } = require('../shared/launcher-shared');
 const {
   calculateMiniBounds,
+  expandMiniBounds,
   fitWindowToWorkArea
 } = require('./window-bounds');
 const {
@@ -44,6 +47,9 @@ class WindowManager {
     this.tray = null;
     this.dockedMoveMode = false;
     this.miniZOrderTimer = null;
+    // Position of the collapsed mini bar; expanded bounds derive from it.
+    this.miniBasePosition = null;
+    this.lastMiniBounds = null;
     this.destroyingMini = false;
     this.currentUpdateState = null;
   }
@@ -180,13 +186,21 @@ class WindowManager {
         return;
       }
 
-      const [x, y] = win.getPosition();
+      const bounds = win.getBounds();
+      // macOS also reports programmatic moves, which must not shift the base.
+      if (this.isLastAppliedMiniBounds(bounds)) {
+        return;
+      }
+
+      const { x, y } = bounds;
+      this.miniBasePosition = { x, y };
+      this.lastMiniBounds = bounds;
       if (mode === 'floating') {
         this.configStore.update(config => {
           config.miniBar.position = { x, y };
         });
       } else if (mode === 'docked' && this.dockedMoveMode && !isMac(this.platform)) {
-        this.saveDockedPosition(win.getBounds());
+        this.saveDockedPosition({ x, y });
       }
     });
 
@@ -204,6 +218,8 @@ class WindowManager {
     });
 
     this.miniWindow = win;
+    this.miniBasePosition = { x: bounds.x, y: bounds.y };
+    this.lastMiniBounds = bounds;
     this.startMiniZOrderKeeper();
     this.logger.info('Mini window created', { mode });
     return win;
@@ -422,8 +438,7 @@ class WindowManager {
   }
 
   formatShortcutLabel(shortcut) {
-    return (shortcut || 'CommandOrControl+Shift+P')
-      .replace('CommandOrControl', isMac(this.platform) ? 'Cmd' : 'Ctrl');
+    return formatAccelerator(shortcut, isMac(this.platform));
   }
 
   showMainWindow() {
@@ -440,6 +455,7 @@ class WindowManager {
     win.show();
     win.focus();
     win.webContents.send('window-shown');
+    this.actions.prepareFolderOpening?.();
   }
 
   hideMainWindow() {
@@ -521,19 +537,13 @@ class WindowManager {
       return { success: false, error: 'Mini-barre indisponible' };
     }
 
-    const currentBounds = this.miniWindow.getBounds();
     if (isMac(this.platform) && this.config.integrationMode === 'docked') {
-      this.miniWindow.setBounds(this.calculateMiniBounds(width));
+      this.applyMiniBounds(this.calculateMiniBounds(width));
     } else {
-      this.miniWindow.setBounds({
-        x: currentBounds.x,
-        y: currentBounds.y,
-        width,
-        height: MINI_DEFAULT_HEIGHT
-      });
+      this.applyMiniBounds(this.expandMiniBoundsFromBase(width));
 
       if (this.config.integrationMode === 'docked' && isWindows(this.platform)) {
-        this.saveDockedPosition(this.miniWindow.getBounds());
+        this.saveDockedPosition(this.getMiniBasePosition());
       }
     }
 
@@ -541,18 +551,67 @@ class WindowManager {
     return { success: true };
   }
 
-  saveDockedPosition(bounds) {
+  getMiniBasePosition() {
+    if (this.miniBasePosition) {
+      return this.miniBasePosition;
+    }
+
+    const { x, y } = this.miniWindow.getBounds();
+    return { x, y };
+  }
+
+  expandMiniBoundsFromBase(width) {
+    const base = this.getMiniBasePosition();
+    const docked = this.config.integrationMode === 'docked';
+    const display = this.screen.getDisplayNearestPoint({
+      x: base.x + Math.round(MINI_BASE_WIDTH / 2),
+      y: base.y + Math.round(MINI_DEFAULT_HEIGHT / 2)
+    });
+
+    // The docked bar overlaps the taskbar, so it may use the whole display.
+    return expandMiniBounds(base, width, docked ? display.bounds : display.workArea, {
+      padding: docked ? 0 : MINI_EDGE_PADDING
+    });
+  }
+
+  applyMiniBounds(bounds) {
+    this.lastMiniBounds = bounds;
+    this.miniWindow.setBounds(bounds);
+  }
+
+  isLastAppliedMiniBounds(bounds) {
+    const last = this.lastMiniBounds;
+    return Boolean(last)
+      && last.x === bounds.x
+      && last.y === bounds.y
+      && last.width === bounds.width
+      && last.height === bounds.height;
+  }
+
+  saveDockedPosition(position) {
+    const { dockedUseCustomPosition, dockedPosition } = this.config.miniBar;
+    if (
+      dockedUseCustomPosition
+      && dockedPosition
+      && dockedPosition.x === position.x
+      && dockedPosition.y === position.y
+    ) {
+      return;
+    }
+
     this.configStore.update(config => {
       config.miniBar.dockedUseCustomPosition = true;
       config.miniBar.dockedPosition = {
-        x: bounds.x,
-        y: bounds.y
+        x: position.x,
+        y: position.y
       };
     });
   }
 
   destroyMiniWindow() {
     this.stopMiniZOrderKeeper();
+    this.miniBasePosition = null;
+    this.lastMiniBounds = null;
     if (!this.miniWindow || this.miniWindow.isDestroyed()) {
       this.miniWindow = null;
       return;
@@ -578,8 +637,8 @@ class WindowManager {
         config.integrationMode = 'floating';
       } else if (config.integrationMode === 'docked') {
         if (this.miniWindow && !this.miniWindow.isDestroyed() && !isMac(this.platform)) {
-          const bounds = this.miniWindow.getBounds();
-          config.miniBar.position = { x: bounds.x, y: bounds.y };
+          const { x, y } = this.getMiniBasePosition();
+          config.miniBar.position = { x, y };
         }
         config.integrationMode = 'floating';
       } else {
@@ -623,7 +682,7 @@ class WindowManager {
     }
 
     if (this.dockedMoveMode && this.miniWindow && !this.miniWindow.isDestroyed()) {
-      this.saveDockedPosition(this.miniWindow.getBounds());
+      this.saveDockedPosition(this.getMiniBasePosition());
     }
 
     this.dockedMoveMode = !this.dockedMoveMode;
@@ -650,7 +709,7 @@ class WindowManager {
       return;
     }
 
-    win.setBounds(this.calculateMiniBounds(MINI_BASE_WIDTH));
+    this.applyMiniBounds(this.calculateMiniBounds(MINI_BASE_WIDTH));
     win.show();
     win.focus();
     win.webContents.send('mini-popover-shown');
@@ -719,7 +778,9 @@ class WindowManager {
       && !this.miniWindow.isDestroyed()
     ) {
       const currentWidth = this.miniWindow.getBounds().width;
-      this.miniWindow.setBounds(this.calculateMiniBounds(currentWidth));
+      const base = this.calculateMiniBounds(MINI_BASE_WIDTH);
+      this.miniBasePosition = { x: base.x, y: base.y };
+      this.applyMiniBounds(this.expandMiniBoundsFromBase(currentWidth));
     }
     this.bumpMiniWindowAboveTaskbar();
   }

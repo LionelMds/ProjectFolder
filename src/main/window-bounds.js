@@ -157,6 +157,21 @@ function calculateMiniBounds(options) {
   }, display.workArea);
 }
 
+// Widens the mini bar from its collapsed position. A bar close to the right
+// edge grows leftwards so its buttons stay visible, and collapsing it again
+// returns exactly to the base position.
+function expandMiniBounds(basePosition, width, area, options = {}) {
+  const baseWidth = options.baseWidth ?? MINI_BASE_WIDTH;
+  const height = options.height ?? MINI_DEFAULT_HEIGHT;
+  const padding = options.padding ?? MINI_EDGE_PADDING;
+  const rightLimit = area.x + area.width - padding;
+  const x = basePosition.x + width > rightLimit
+    ? basePosition.x + baseWidth - width
+    : basePosition.x;
+
+  return clampBoundsToDisplay({ x, y: basePosition.y, width, height }, area, padding);
+}
+
 function fitWindowToWorkArea(size, workArea, options = {}) {
   const margin = options.margin ?? 16;
   const minWidth = options.minWidth ?? 320;
@@ -177,5 +192,6 @@ module.exports = {
   clamp,
   clampBoundsToDisplay,
   detectReservedScreenEdge,
+  expandMiniBounds,
   fitWindowToWorkArea
 };

@@ -13,6 +13,7 @@ function subscribe(channel, callback) {
 }
 
 const api = Object.freeze({
+  platform: process.platform,
   getConfig: () => ipcRenderer.invoke('get-config'),
   resolveProject: projectNumber => ipcRenderer.invoke('resolve-project', projectNumber),
   openProjectFolder: (projectNumber, subfolderIndex) => (

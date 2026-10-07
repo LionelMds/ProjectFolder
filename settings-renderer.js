@@ -1,6 +1,7 @@
 let config = null;
 let sousDossiers = [];
 let capturingShortcut = false;
+let pendingShortcut = null;
 let activeEmojiPicker = null;
 
 const racineInput = document.getElementById('racineInput');
@@ -16,7 +17,9 @@ const cancelBtn = document.getElementById('cancelBtn');
 const closeBtn = document.getElementById('closeBtn');
 const settingsStatus = document.getElementById('settingsStatus');
 
-const isMac = navigator.platform.startsWith('Mac');
+const Shared = window.LauncherShared;
+const isMac = window.electronAPI.platform === 'darwin';
+const CAPTURE_PROMPT = 'Appuyez sur les touches...';
 const SHORTCUT_OPTIONS = ['Enter', 'Ctrl+Enter', 'Shift+Enter', 'Alt+Enter'];
 const OPEN_BEHAVIORS = ['newWindow', 'newTab', 'reuseWindow'];
 
@@ -56,13 +59,12 @@ function setCheckedRadioValue(name, value, fallback) {
 }
 
 function displayShortcut(shortcut) {
-    return (shortcut || 'CommandOrControl+Shift+P').replace('CommandOrControl', isMac ? 'Cmd' : 'Ctrl');
+    return Shared.formatAccelerator(shortcut, isMac);
 }
 
-function electronShortcutFromDisplay(shortcut) {
-    return (shortcut || 'Ctrl+Shift+P')
-        .replace(/^Cmd\+/, 'CommandOrControl+')
-        .replace(/^Ctrl\+/, 'CommandOrControl+');
+function showStatus(message, isError = false) {
+    settingsStatus.textContent = message;
+    settingsStatus.className = isError ? 'settings-status error' : 'settings-status';
 }
 
 function populateForm() {
@@ -70,6 +72,7 @@ function populateForm() {
     sousDossiers = JSON.parse(JSON.stringify(config.sousDossiers || []));
     renderSubfolders();
 
+    pendingShortcut = null;
     const shortcutLabel = displayShortcut(config.raccourciGlobal);
     shortcutInput.value = shortcutLabel;
     shortcutCurrent.textContent = `Actuel: ${shortcutLabel}`;
@@ -235,13 +238,13 @@ function renderSubfolders() {
         SHORTCUT_OPTIONS.forEach(optionValue => {
             const option = document.createElement('option');
             option.value = optionValue;
-            option.textContent = isMac ? optionValue.replace('Ctrl+', 'Cmd+') : optionValue;
+            option.textContent = Shared.formatSubfolderShortcut(optionValue, isMac);
             option.selected = subfolder.raccourci === optionValue;
             shortcutSelect.appendChild(option);
         });
 
         shortcutSelect.addEventListener('change', (event) => {
-            sousDossiers[index].raccourci = event.target.value || null;
+            setSubfolderShortcut(index, event.target.value || null);
         });
 
         const actions = document.createElement('div');
@@ -268,6 +271,24 @@ function renderSubfolders() {
 
         subfolderList.appendChild(row);
     });
+}
+
+// A key combination opens a single subfolder: picking it moves it here.
+function setSubfolderShortcut(index, shortcut) {
+    const previousOwner = shortcut
+        ? sousDossiers.findIndex((subfolder, otherIndex) => otherIndex !== index && subfolder.raccourci === shortcut)
+        : -1;
+
+    sousDossiers[index].raccourci = shortcut;
+    if (previousOwner < 0) {
+        return;
+    }
+
+    sousDossiers[previousOwner].raccourci = null;
+    renderSubfolders();
+    showStatus(
+        `${Shared.formatSubfolderShortcut(shortcut, isMac)} retiré de « ${sousDossiers[previousOwner].nom || 'Sous-dossier'} ».`
+    );
 }
 
 function createActionButton(label, title, onClick, danger = false) {
@@ -319,12 +340,12 @@ function removeSubfolder(index) {
 function startShortcutCapture() {
     capturingShortcut = true;
     shortcutInput.classList.add('capturing');
-    shortcutInput.value = 'Appuyez sur les touches...';
+    shortcutInput.value = CAPTURE_PROMPT;
 }
 
 function stopShortcutCapture() {
-    if (capturingShortcut && shortcutInput.value === 'Appuyez sur les touches...') {
-        shortcutInput.value = displayShortcut(config.raccourciGlobal);
+    if (capturingShortcut) {
+        shortcutInput.value = displayShortcut(pendingShortcut || config.raccourciGlobal);
     }
 
     capturingShortcut = false;
@@ -337,45 +358,35 @@ function handleShortcutCapture(event) {
     }
 
     event.preventDefault();
+    // Escape must not also reach the document handler that closes the window.
+    event.stopPropagation();
 
-    if (['Control', 'Shift', 'Alt', 'Meta'].includes(event.key)) {
+    const hasModifier = event.ctrlKey || event.metaKey || event.altKey || event.shiftKey;
+    if (event.key === 'Escape' && !hasModifier) {
+        stopShortcutCapture();
+        shortcutInput.blur();
         return;
     }
 
-    const parts = [];
-
-    if (event.ctrlKey || event.metaKey) {
-        parts.push(isMac ? 'Cmd' : 'Ctrl');
+    const capture = Shared.acceleratorFromKeyboardEvent(event, isMac);
+    if (capture.pending) {
+        return;
     }
 
-    if (event.shiftKey) {
-        parts.push('Shift');
+    if (capture.error) {
+        showStatus(capture.error, true);
+        return;
     }
 
-    if (event.altKey) {
-        parts.push('Alt');
-    }
-
-    let key = event.key;
-
-    if (key === ' ') {
-        key = 'Space';
-    } else if (key.length === 1) {
-        key = key.toUpperCase();
-    }
-
-    parts.push(key);
-    shortcutInput.value = parts.join('+');
-    capturingShortcut = false;
-    shortcutInput.classList.remove('capturing');
+    pendingShortcut = capture.accelerator;
+    showStatus('');
+    stopShortcutCapture();
     shortcutInput.blur();
 }
 
 async function handleSave() {
     const openBehavior = getCheckedRadioValue('openBehavior', 'newWindow');
-    const shortcutToSave = shortcutInput.value === 'Appuyez sur les touches...'
-        ? config.raccourciGlobal
-        : electronShortcutFromDisplay(shortcutInput.value);
+    const shortcutToSave = pendingShortcut || config.raccourciGlobal;
     const visibleIntegrationMode = config.integrationMode === 'hidden'
         ? (config.miniBar?.lastVisibleIntegrationMode || 'floating')
         : config.integrationMode;
@@ -390,16 +401,14 @@ async function handleSave() {
     };
 
     saveBtn.disabled = true;
-    settingsStatus.textContent = 'Enregistrement...';
-    settingsStatus.className = 'settings-status';
+    showStatus('Enregistrement...');
     const result = await window.electronAPI.saveSettings(newConfig);
 
     if (result.success) {
         window.electronAPI.closeSettings();
     } else {
         saveBtn.disabled = false;
-        settingsStatus.textContent = result.error || 'Impossible d’enregistrer les paramètres.';
-        settingsStatus.className = 'settings-status error';
+        showStatus(result.error || 'Impossible d’enregistrer les paramètres.', true);
         console.error('Failed to save settings:', result.error);
     }
 }

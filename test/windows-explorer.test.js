@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const { spawnSync } = require('child_process');
 const test = require('node:test');
 const {
-  buildWindowsExplorerComNavigationScript
+  buildWindowsExplorerComNavigationScript,
+  createExplorerWorker
 } = require('../src/main/folder-openers/windows-explorer');
 
 test('Explorer scripts escape apostrophes and select the requested behavior', () => {
@@ -26,6 +27,63 @@ test('Explorer sizing only applies to newly created windows', () => {
   assert.deepEqual(sizedCalls, ['Activate-ExplorerWindow $window $true']);
   assert.match(script, /if \(\[ProjectLauncherWin32\]::IsIconic\(\$hwnd\)\) \{\s*\[ProjectLauncherWin32\]::ShowWindow\(\$hwnd, 9\)/);
   assert.match(script, /-not \$beforeHandles\.ContainsKey\(\$handle\)\) \{\s*Activate-ExplorerWindow \$window \$true/);
+});
+
+test('keystrokes are only sent once Explorer is confirmed in the foreground', () => {
+  const script = buildWindowsExplorerComNavigationScript('C:\\Temp', 'newTab');
+
+  assert.match(script, /if \(-not \(Wait-ForegroundWindow \$hwnd 400\)\) \{[\s\S]*?return \$false/);
+  assert.match(
+    script,
+    /if \(-not \(Activate-ExplorerWindow \$target\)\) \{[\s\S]*?return\s*\}\s*\[System\.Windows\.Forms\.SendKeys\]::SendWait\('\^t'\)/
+  );
+  assert.match(
+    script,
+    /if \(Activate-ExplorerWindow \$target\) \{\s*try \{ \[System\.Windows\.Forms\.SendKeys\]::SendWait\('\^w'\)/
+  );
+  assert.match(
+    script,
+    /if \(-not \(Test-IsForegroundWindow \$hwnd\)\) \{[\s\S]*?return \$false\s*\}\s*\[System\.Windows\.Forms\.SendKeys\]::SendWait\('\{ENTER\}'\)/
+  );
+});
+
+test('a failed COM navigation is reported as a failure', {
+  skip: process.platform !== 'win32'
+}, () => {
+  const script = buildWindowsExplorerComNavigationScript('C:\\Temp', 'newWindow');
+  const automation = script.slice(0, script.lastIndexOf('$folderPath ='));
+  const result = spawnSync('powershell.exe', [
+    '-NoLogo', '-NoProfile', '-NonInteractive', '-Sta', '-Command',
+    `$source = [Console]::In.ReadToEnd()
+. ([ScriptBlock]::Create($source))
+$window = New-Object PSObject
+$window | Add-Member ScriptMethod Navigate2 { throw 'refused' }
+$window | Add-Member ScriptMethod Navigate { throw 'refused' }
+$records = @(Invoke-ExplorerNavigate $window 'C:\\Temp' 50 3>&1)
+$results = @($records | Where-Object { $_ -isnot [System.Management.Automation.WarningRecord] })
+$warnings = @($records | Where-Object { $_ -is [System.Management.Automation.WarningRecord] })
+if ($results.Count -ne 1 -or $results[0] -ne $false) { throw 'navigation result is not a single $false' }
+if (-not ($warnings[0].Message -like 'com-navigate-error:*refused*')) { throw 'missing diagnostic' }`
+  ], { input: automation, encoding: 'utf8', timeout: 15000, windowsHide: true });
+
+  assert.equal(result.status, 0, result.stderr || result.error?.message);
+});
+
+test('the Explorer worker keeps accented paths intact', {
+  skip: process.platform !== 'win32'
+}, async () => {
+  const worker = createExplorerWorker();
+  const folderPath = "C:\\Projets\\2026\\2026-4889\\Plans\\Plan d'exécution – 🏭";
+  try {
+    assert.equal(await worker.request({ op: 'echo', path: folderPath }), folderPath);
+    await assert.rejects(
+      worker.request({ op: 'navigate', path: ' ' }),
+      /Unsupported worker request/
+    );
+    assert.equal(worker.running, true);
+  } finally {
+    worker.stop();
+  }
 });
 
 test('the generated Explorer PowerShell is syntactically valid', {

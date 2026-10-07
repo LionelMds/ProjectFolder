@@ -29,21 +29,31 @@ Après le packaging, les fuses Electron désactivent `ELECTRON_RUN_AS_NODE`, `NO
 
 ## Configuration
 
-Le schéma courant est `schemaVersion: 2`. Les anciennes clés `reuseExplorerWindow`, `openInNewTab` et `miniBar.enabled` sont lues pendant la migration mais ne sont plus réécrites.
+Le schéma courant est `schemaVersion: 3`. Les anciennes clés `reuseExplorerWindow`, `openInNewTab` et `miniBar.enabled` sont lues pendant la migration mais ne sont plus réécrites.
 
 Une sauvegarde suit ce cycle :
 
 1. Sérialisation vers un fichier temporaire.
 2. Synchronisation du fichier temporaire sur disque.
-3. Déplacement de la configuration courante vers `.bak`.
-4. Promotion du fichier temporaire en `config.json`.
-5. Restauration de `.bak` si la promotion échoue.
+3. Copie de la configuration courante vers `.bak`.
+4. Promotion du fichier temporaire en `config.json` par renommage atomique : le fichier courant n'est jamais absent.
+5. En cas de verrou passager (antivirus, OneDrive), copie et renommage sont retentés.
+
+Au démarrage, `.bak` est relu si `config.json` est illisible ou absent.
 
 ## Explorer Windows
 
 L'ouverture en nouvel onglet utilise d'abord `Shell.Application` pour cibler l'objet COM du nouvel onglet. Si Windows ne publie pas cet objet assez vite, UI Automation cible le champ actif après `Ctrl+L` et applique le chemin via `ValuePattern.SetValue`. Le chemin apparaît instantanément, sans frappe simulée et sans modifier le presse-papiers.
 
 Si Explorer ne permet aucune des deux méthodes, l'application ouvre une nouvelle fenêtre afin de toujours atteindre le dossier demandé.
+
+Aucune touche (`Ctrl+T`, `Ctrl+L`, `Entrée`, `Ctrl+W`) n'est envoyée sans avoir vérifié que la fenêtre Explorer est réellement au premier plan : si Windows refuse l'activation, le script ouvre une nouvelle fenêtre plutôt que de risquer d'envoyer ces touches à une autre application.
+
+Le script PowerShell tourne dans un processus persistant (`powershell-worker.js`) : le chargement des assemblies et la compilation C# (~0,5 s) ne sont payés qu'une fois. Le processus est démarré dès que la recherche s'affiche, reçoit une requête JSON par ligne (en ASCII, pour que les chemins accentués ne dépendent pas de la page de code de la console) et s'arrête après 10 minutes d'inactivité.
+
+## Résolution des projets
+
+Les dossiers d'années sont interrogés en parallèle, ce qui ne coûte qu'un aller-retour sur un partage réseau. Un projet trouvé est gardé 30 secondes en cache, pour que l'ouverture qui suit la saisie ne refasse pas la recherche. Un projet introuvable n'est jamais mis en cache.
 
 ## Publication
 

@@ -1,15 +1,20 @@
 'use strict';
 
-const { FOLDER_WINDOW_SCALE } = require('../constants');
+const {
+  EXPLORER_NAVIGATION_TIMEOUT_MS,
+  EXPLORER_WORKER_IDLE_MS,
+  FOLDER_WINDOW_SCALE
+} = require('../constants');
 const {
   escapePowerShellSingleQuoted,
   execFileAsync
 } = require('../process-runner');
+const { PowerShellWorker } = require('../powershell-worker');
 
-function buildWindowsExplorerComNavigationScript(folderPath, mode) {
-  const escapedPath = escapePowerShellSingleQuoted(folderPath);
-  const escapedMode = escapePowerShellSingleQuoted(mode);
-
+// Assemblies, native helpers and navigation functions shared by the one-shot
+// script and the long-lived worker. Compiling them is what makes a cold
+// PowerShell start cost about half a second.
+function buildExplorerAutomationScript() {
   return `
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Windows.Forms
@@ -213,6 +218,24 @@ function Select-ExplorerWindow($Shell) {
   return $windows[0]
 }
 
+function Test-IsForegroundWindow([IntPtr]$Hwnd) {
+  return [ProjectLauncherWin32]::GetForegroundWindow().ToInt64() -eq $Hwnd.ToInt64()
+}
+
+function Wait-ForegroundWindow([IntPtr]$Hwnd, [int]$TimeoutMs) {
+  $deadline = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+  do {
+    if (Test-IsForegroundWindow $Hwnd) {
+      return $true
+    }
+    Start-Sleep -Milliseconds 20
+  } while ([DateTime]::UtcNow -lt $deadline)
+
+  return (Test-IsForegroundWindow $Hwnd)
+}
+
+# Returns $true only when Explorer really owns the keyboard focus: Windows may
+# refuse SetForegroundWindow, and keystrokes would then reach another app.
 function Activate-ExplorerWindow($Window, [bool]$FitSize = $false) {
   try {
     $hwnd = [IntPtr]([int64]$Window.HWND)
@@ -228,6 +251,10 @@ function Activate-ExplorerWindow($Window, [bool]$FitSize = $false) {
       [ProjectLauncherWin32]::ShowWindow($hwnd, 9) | Out-Null
     }
     [ProjectLauncherWin32]::SetForegroundWindow($hwnd) | Out-Null
+    if (-not (Wait-ForegroundWindow $hwnd 400)) {
+      Write-Warning 'Explorer window did not become the foreground window'
+      return $false
+    }
     Start-Sleep -Milliseconds 80
     return $true
   } catch {
@@ -235,6 +262,8 @@ function Activate-ExplorerWindow($Window, [bool]$FitSize = $false) {
   }
 }
 
+# Diagnostics go to the warning stream: anything written to the output stream
+# would become part of the boolean result tested by the callers.
 function Invoke-ExplorerNavigate($Window, [string]$Path, [int]$TimeoutMs) {
   try {
     try {
@@ -243,7 +272,7 @@ function Invoke-ExplorerNavigate($Window, [string]$Path, [int]$TimeoutMs) {
       $Window.Navigate($Path)
     }
   } catch {
-    Write-Output ('com-navigate-error:' + $_.Exception.Message)
+    Write-Warning ('com-navigate-error:' + $_.Exception.Message)
     return $false
   }
 
@@ -263,9 +292,15 @@ function Invoke-ActiveTabNavigateWithUiAutomation($Window, [string]$Path) {
     return $false
   }
 
+  $hwnd = [IntPtr]([int64]$Window.HWND)
   try {
     [System.Windows.Forms.SendKeys]::SendWait('^l')
     Start-Sleep -Milliseconds 45
+    if (-not (Test-IsForegroundWindow $hwnd)) {
+      Write-Warning 'uia-navigation-error:focus-lost'
+      return $false
+    }
+
     $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
     if ($null -eq $focused) {
       return $false
@@ -279,19 +314,25 @@ function Invoke-ActiveTabNavigateWithUiAutomation($Window, [string]$Path) {
     }
 
     $pattern.SetValue($Path)
+    if (-not (Test-IsForegroundWindow $hwnd)) {
+      Write-Warning 'uia-navigation-error:focus-lost'
+      return $false
+    }
     [System.Windows.Forms.SendKeys]::SendWait('{ENTER}')
     Start-Sleep -Milliseconds 80
     return $true
   } catch {
-    try { [System.Windows.Forms.SendKeys]::SendWait('{ESC}') } catch {}
-    Write-Output ('uia-navigation-error:' + $_.Exception.Message)
+    if (Test-IsForegroundWindow $hwnd) {
+      try { [System.Windows.Forms.SendKeys]::SendWait('{ESC}') } catch {}
+    }
+    Write-Warning ('uia-navigation-error:' + $_.Exception.Message)
     return $false
   }
 }
 
-function Open-InNewExplorerWindow([string]$Path) {
+function Open-InNewExplorerWindow($Shell, [string]$Path) {
   $beforeHandles = @{}
-  foreach ($window in @(Get-ExplorerWindows $shell)) {
+  foreach ($window in @(Get-ExplorerWindows $Shell)) {
     try { $beforeHandles[[string]$window.HWND] = $true } catch {}
   }
   $quotedPath = '"' + $Path.Replace('"', '\\"') + '"'
@@ -303,7 +344,7 @@ function Open-InNewExplorerWindow([string]$Path) {
     do {
       $foregroundHwnd = [ProjectLauncherWin32]::GetForegroundWindow().ToInt64()
       $matchingForeground = $null
-      foreach ($window in @(Get-ExplorerWindows $shell)) {
+      foreach ($window in @(Get-ExplorerWindows $Shell)) {
         if (Test-WindowAtPath $window $Path) {
           $handle = [string]$window.HWND
           if (-not $beforeHandles.ContainsKey($handle)) {
@@ -326,10 +367,11 @@ function Open-InNewExplorerWindow([string]$Path) {
   }
 }
 
+
 function Navigate-ReuseWindow($Shell, [string]$Path) {
   $target = Select-ExplorerWindow $Shell
   if ($null -eq $target) {
-    Open-InNewExplorerWindow $Path
+    Open-InNewExplorerWindow $Shell $Path
     Write-Output 'fallback:new-window:no-existing-explorer'
     return
   }
@@ -345,20 +387,24 @@ function Navigate-ReuseWindow($Shell, [string]$Path) {
     return
   }
 
-  Open-InNewExplorerWindow $Path
+  Open-InNewExplorerWindow $Shell $Path
   Write-Output 'fallback:new-window:reuse-navigation-failed'
 }
 
 function Navigate-NewTab($Shell, [string]$Path) {
   $target = Select-ExplorerWindow $Shell
   if ($null -eq $target) {
-    Open-InNewExplorerWindow $Path
+    Open-InNewExplorerWindow $Shell $Path
     Write-Output 'fallback:new-window:no-existing-explorer'
     return
   }
 
   $beforeWindows = @(Get-ExplorerWindows $Shell)
-  Activate-ExplorerWindow $target | Out-Null
+  if (-not (Activate-ExplorerWindow $target)) {
+    Open-InNewExplorerWindow $Shell $Path
+    Write-Output 'fallback:new-window:explorer-not-foreground'
+    return
+  }
   [System.Windows.Forms.SendKeys]::SendWait('^t')
 
   $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500
@@ -381,30 +427,119 @@ function Navigate-NewTab($Shell, [string]$Path) {
     }
   }
 
-  try {
-    Activate-ExplorerWindow $target | Out-Null
-    [System.Windows.Forms.SendKeys]::SendWait('^w')
-  } catch {}
-  Open-InNewExplorerWindow $Path
+  # Close the blank tab only when Ctrl+W is certain to reach Explorer.
+  if (Activate-ExplorerWindow $target) {
+    try { [System.Windows.Forms.SendKeys]::SendWait('^w') } catch {}
+  } else {
+    Write-Output 'new-tab-cleanup-skipped'
+  }
+  Open-InNewExplorerWindow $Shell $Path
   Write-Output 'fallback:new-window:new-tab-navigation-failed'
 }
 
-$folderPath = '${escapedPath}'
-$mode = '${escapedMode}'
-$shell = New-Object -ComObject Shell.Application
+function Invoke-ExplorerNavigation($Shell, [string]$Path, [string]$Mode) {
+  if ($Mode -eq 'reuseWindow') {
+    Navigate-ReuseWindow $Shell $Path
+  } elseif ($Mode -eq 'newTab') {
+    Navigate-NewTab $Shell $Path
+  } else {
+    Open-InNewExplorerWindow $Shell $Path
+    Write-Output 'opened:new-window:explicit'
+  }
+}
 
-if ($mode -eq 'reuseWindow') {
-  Navigate-ReuseWindow $shell $folderPath
-} elseif ($mode -eq 'newTab') {
-  Navigate-NewTab $shell $folderPath
-} else {
-  Open-InNewExplorerWindow $folderPath
-  Write-Output 'opened:new-window:explicit'
+function Format-NavigationRecords($Records) {
+  $lines = foreach ($record in @($Records)) {
+    if ($record -is [System.Management.Automation.WarningRecord]) {
+      'warning:' + $record.Message
+    } elseif ($null -ne $record) {
+      [string]$record
+    }
+  }
+  return [string]::Join([string][char]10, [string[]]@($lines))
 }
 `;
 }
 
-async function navigateWindowsExplorerWithCom(folderPath, mode) {
+// Long-lived variant: one JSON request per stdin line, one JSON answer per
+// stdout line. Both directions stay ASCII (\uXXXX escapes) so accented paths
+// survive whatever console code page Windows uses.
+const WORKER_LOOP_SCRIPT = String.raw`
+function ConvertTo-AsciiJson($Value) {
+  $json = ConvertTo-Json -InputObject $Value -Compress
+  return [regex]::Replace($json, '[^\x00-\x7F]', { param($m) '\u{0:x4}' -f [int][char]$m.Value })
+}
+
+[Console]::Out.WriteLine((ConvertTo-AsciiJson @{ ready = $true }))
+[Console]::Out.Flush()
+
+while ($true) {
+  $line = [Console]::In.ReadLine()
+  if ($null -eq $line) {
+    break
+  }
+  if ([string]::IsNullOrWhiteSpace($line)) {
+    continue
+  }
+
+  $id = $null
+  try {
+    $request = ConvertFrom-Json -InputObject $line
+    $id = $request.id
+    $requestPath = [string]$request.path
+    if ($request.op -eq 'echo') {
+      $output = $requestPath
+    } elseif ($request.op -eq 'navigate' -and -not [string]::IsNullOrWhiteSpace($requestPath)) {
+      # A fresh Shell object per request survives an Explorer restart.
+      $shell = New-Object -ComObject Shell.Application
+      $output = Format-NavigationRecords @(Invoke-ExplorerNavigation $shell $requestPath ([string]$request.mode) 3>&1)
+    } else {
+      throw ('Unsupported worker request: ' + [string]$request.op)
+    }
+    $response = @{ id = $id; ok = $true; output = $output }
+  } catch {
+    $response = @{ id = $id; ok = $false; error = $_.Exception.Message }
+  }
+
+  [Console]::Out.WriteLine((ConvertTo-AsciiJson $response))
+  [Console]::Out.Flush()
+}
+`;
+
+function buildWindowsExplorerComNavigationScript(folderPath, mode) {
+  const escapedPath = escapePowerShellSingleQuoted(folderPath);
+  const escapedMode = escapePowerShellSingleQuoted(mode);
+
+  return `${buildExplorerAutomationScript()}
+$folderPath = '${escapedPath}'
+$mode = '${escapedMode}'
+$shell = New-Object -ComObject Shell.Application
+Format-NavigationRecords @(Invoke-ExplorerNavigation $shell $folderPath $mode 3>&1)
+`;
+}
+
+function buildWindowsExplorerWorkerScript() {
+  return `${buildExplorerAutomationScript()}${WORKER_LOOP_SCRIPT}`;
+}
+
+function createExplorerWorker(options = {}) {
+  return new PowerShellWorker({
+    script: buildWindowsExplorerWorkerScript(),
+    logger: options.logger,
+    spawn: options.spawn,
+    idleTimeoutMs: options.idleTimeoutMs ?? EXPLORER_WORKER_IDLE_MS
+  });
+}
+
+async function navigateWindowsExplorerWithCom(folderPath, mode, worker = null) {
+  if (worker) {
+    const output = await worker.request(
+      { op: 'navigate', path: folderPath, mode },
+      { timeoutMs: EXPLORER_NAVIGATION_TIMEOUT_MS }
+    );
+    return output.trim();
+  }
+
   const script = buildWindowsExplorerComNavigationScript(folderPath, mode);
   const result = await execFileAsync('powershell.exe', [
     '-NoLogo',
@@ -416,7 +551,7 @@ async function navigateWindowsExplorerWithCom(folderPath, mode) {
     '-Command',
     script
   ], {
-    timeout: 10000
+    timeout: EXPLORER_NAVIGATION_TIMEOUT_MS
   });
 
   return result.stdout.trim();
@@ -424,5 +559,7 @@ async function navigateWindowsExplorerWithCom(folderPath, mode) {
 
 module.exports = {
   buildWindowsExplorerComNavigationScript,
+  buildWindowsExplorerWorkerScript,
+  createExplorerWorker,
   navigateWindowsExplorerWithCom
 };

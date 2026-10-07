@@ -7,6 +7,7 @@ const {
   supportsWindowsExplorerTabs
 } = require('../platform');
 const {
+  createExplorerWorker,
   navigateWindowsExplorerWithCom
 } = require('./windows-explorer');
 const {
@@ -22,6 +23,34 @@ class FolderOpener {
     this.logger = options.logger;
     this.platform = options.platform || process.platform;
     this.osRelease = options.osRelease;
+    this.createExplorerWorker = options.createExplorerWorker
+      || (() => createExplorerWorker({ logger: this.logger }));
+    this.explorerWorker = null;
+  }
+
+  // Starts the Explorer automation process ahead of time, typically when the
+  // search UI appears, so the first opening does not pay its startup cost.
+  prepare() {
+    if (!isWindows(this.platform)) {
+      return;
+    }
+
+    try {
+      this.getExplorerWorker().start();
+    } catch (error) {
+      this.logger.warn('Explorer worker warm-up failed', { error: error.message });
+    }
+  }
+
+  getExplorerWorker() {
+    if (!this.explorerWorker) {
+      this.explorerWorker = this.createExplorerWorker();
+    }
+    return this.explorerWorker;
+  }
+
+  dispose() {
+    this.explorerWorker?.stop();
   }
 
   async open(folderPath, behavior) {
@@ -69,7 +98,7 @@ class FolderOpener {
   async openInNewWindow(folderPath) {
     try {
       if (isWindows(this.platform)) {
-        return await navigateWindowsExplorerWithCom(folderPath, 'newWindow');
+        return await navigateWindowsExplorerWithCom(folderPath, 'newWindow', this.getExplorerWorker());
       }
       if (isMac(this.platform)) {
         return await openFolderInFinderWindow(folderPath, this.getWorkAreas());
@@ -94,7 +123,7 @@ class FolderOpener {
         return this.openInNewWindow(folderPath);
       }
 
-      return navigateWindowsExplorerWithCom(folderPath, 'newTab');
+      return navigateWindowsExplorerWithCom(folderPath, 'newTab', this.getExplorerWorker());
     }
 
     if (isMac(this.platform)) {
@@ -106,7 +135,7 @@ class FolderOpener {
 
   async reuseWindow(folderPath) {
     if (isWindows(this.platform)) {
-      return navigateWindowsExplorerWithCom(folderPath, 'reuseWindow');
+      return navigateWindowsExplorerWithCom(folderPath, 'reuseWindow', this.getExplorerWorker());
     }
 
     if (isMac(this.platform)) {

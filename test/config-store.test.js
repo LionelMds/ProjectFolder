@@ -9,7 +9,8 @@ const {
   ConfigStore,
   assertRelativeSubfolderPath,
   createDefaultConfig,
-  validateSettingsInput
+  validateSettingsInput,
+  withFileLockRetry
 } = require('../src/main/config-store');
 
 test('legacy settings migrate to the current schema', t => {
@@ -89,6 +90,81 @@ test('a corrupt primary configuration is recovered from backup', t => {
   assert.doesNotThrow(() => JSON.parse(fs.readFileSync(configPath, 'utf8')));
   assert.ok(
     fs.readdirSync(directory).some(fileName => fileName.includes('.corrupt-'))
+  );
+});
+
+test('a missing primary configuration is recovered from backup', t => {
+  const directory = createTempDirectory(t);
+  const configPath = path.join(directory, 'config.json');
+  fs.writeFileSync(`${configPath}.bak`, JSON.stringify({
+    ...createDefaultConfig(),
+    racine: directory,
+    autoStart: true
+  }));
+
+  const config = new ConfigStore(configPath, { platform: 'win32' }).load();
+
+  assert.equal(config.autoStart, true);
+  assert.equal(config.racine, directory);
+  assert.equal(JSON.parse(fs.readFileSync(configPath, 'utf8')).autoStart, true);
+});
+
+test('saving never removes the current configuration file', t => {
+  const directory = createTempDirectory(t);
+  const configPath = path.join(directory, 'config.json');
+  const store = new ConfigStore(configPath, { platform: 'win32' });
+  store.load();
+  const originalRename = fs.renameSync;
+  const observed = [];
+  t.after(() => {
+    fs.renameSync = originalRename;
+  });
+  fs.renameSync = (from, to) => {
+    observed.push(fs.existsSync(configPath));
+    return originalRename(from, to);
+  };
+
+  store.update(config => {
+    config.autoStart = true;
+  });
+
+  assert.deepEqual(observed, [true]);
+  assert.deepEqual(
+    fs.readdirSync(directory).sort(),
+    ['config.json', 'config.json.bak']
+  );
+});
+
+test('transient file locks are retried, other errors are not', () => {
+  let attempts = 0;
+  const result = withFileLockRetry(() => {
+    attempts += 1;
+    if (attempts < 3) {
+      throw Object.assign(new Error('locked'), { code: 'EBUSY' });
+    }
+    return 'saved';
+  }, [1, 1, 1]);
+  assert.equal(result, 'saved');
+  assert.equal(attempts, 3);
+
+  let missingAttempts = 0;
+  assert.throws(() => withFileLockRetry(() => {
+    missingAttempts += 1;
+    throw Object.assign(new Error('missing'), { code: 'ENOENT' });
+  }, [1, 1, 1]), /missing/);
+  assert.equal(missingAttempts, 1);
+});
+
+test('a subfolder shortcut can only be assigned once', t => {
+  const directory = createTempDirectory(t);
+  const sousDossiers = [
+    { nom: 'Plans', chemin: 'Plans', raccourci: 'Ctrl+Enter' },
+    { nom: 'Devis', chemin: 'Devis', raccourci: 'Ctrl+Enter' }
+  ];
+
+  assert.throws(
+    () => validateSettingsInput({ ...createDefaultConfig(), racine: directory, sousDossiers }),
+    /Ctrl\+Enter est attribué à « Plans » et à « Devis »/
   );
 });
 

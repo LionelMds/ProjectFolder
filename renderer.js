@@ -16,13 +16,13 @@ const recentEmpty = document.getElementById('recentEmpty');
 const subfoldersMenu = document.getElementById('subfoldersMenu');
 const menuItems = document.getElementById('menuItems');
 
-const digitsOnlyRegex = /^\d{4}$/;
-const fullProjectRegex = /^20\d{2}-\d{4}$/;
+const Shared = window.LauncherShared;
+const isMac = window.electronAPI.platform === 'darwin';
 
 async function init() {
     config = await window.electronAPI.getConfig();
 
-    if (navigator.platform.startsWith('Mac')) {
+    if (isMac) {
         document.body.classList.add('liquid-glass');
     }
 
@@ -34,21 +34,10 @@ async function init() {
 
 function updateShortcutHint() {
     const shortcutHint = document.querySelector('.shortcut-hint');
-    const isMac = navigator.platform.startsWith('Mac');
 
     if (shortcutHint && config.raccourciGlobal) {
-        shortcutHint.textContent = config.raccourciGlobal.replace('CommandOrControl', isMac ? 'Cmd' : 'Ctrl');
+        shortcutHint.textContent = Shared.formatAccelerator(config.raccourciGlobal, isMac);
     }
-}
-
-function formatShortcut(shortcut) {
-    if (!shortcut) {
-        return '';
-    }
-
-    return navigator.platform.startsWith('Mac')
-        ? shortcut.replace('Ctrl+', 'Cmd+')
-        : shortcut;
 }
 
 function formatRecentName(recent) {
@@ -167,7 +156,7 @@ function renderMenuItems() {
         item.appendChild(icon);
         item.appendChild(content);
 
-        const shortcutLabel = formatShortcut(subfolder.raccourci);
+        const shortcutLabel = Shared.formatSubfolderShortcut(subfolder.raccourci, isMac);
         if (shortcutLabel) {
             const shortcut = document.createElement('span');
             shortcut.className = 'item-shortcut';
@@ -262,7 +251,7 @@ function validateProject(value) {
         return;
     }
 
-    if (digitsOnlyRegex.test(value) || fullProjectRegex.test(value)) {
+    if (Shared.DIGITS_ONLY.test(value) || Shared.FULL_PROJECT_NUMBER.test(value)) {
         currentProjectInput = '';
         isValidProject = false;
         isResolvingProject = true;
@@ -306,7 +295,7 @@ async function resolveProject(value, requestId) {
         isValidProject = true;
         validationMessage.textContent = `✓ Projet ${result.projectNumber}`;
         validationMessage.className = 'validation-message valid';
-        selectedSubfolderIndex = 0;
+        selectedSubfolderIndex = Shared.defaultSubfolderIndex(config.sousDossiers);
         showSubfolderList();
         updateSubfolderSelection();
         return;
@@ -368,19 +357,7 @@ function moveSelection(delta) {
 }
 
 function openByKeyboard(event) {
-    if (event.ctrlKey || event.metaKey) {
-        const ctrlIndex = config.sousDossiers.findIndex(subfolder => subfolder.raccourci === 'Ctrl+Enter');
-        openSubfolder(ctrlIndex >= 0 ? ctrlIndex : selectedSubfolderIndex);
-        return;
-    }
-
-    if (event.shiftKey) {
-        const shiftIndex = config.sousDossiers.findIndex(subfolder => subfolder.raccourci === 'Shift+Enter');
-        openSubfolder(shiftIndex >= 0 ? shiftIndex : selectedSubfolderIndex);
-        return;
-    }
-
-    openSubfolder(selectedSubfolderIndex);
+    openSubfolder(Shared.resolveSubfolderIndex(event, config.sousDossiers, selectedSubfolderIndex));
 }
 
 function setSelectedSubfolderIndex(index) {

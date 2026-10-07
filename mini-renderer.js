@@ -4,7 +4,9 @@ let isValidProject = false;
 let validationTimer = null;
 let validationRequestId = 0;
 
-const digitsOnlyRegex = /^\d{4}$/;
+const Shared = window.LauncherShared;
+const digitsOnlyRegex = Shared.DIGITS_ONLY;
+const isMac = window.electronAPI.platform === 'darwin';
 const miniInput = document.getElementById('miniInput');
 const miniStatus = document.getElementById('miniStatus');
 const miniButtons = document.getElementById('miniButtons');
@@ -22,10 +24,10 @@ async function init() {
 
 function applyModeClasses() {
     const isPinned = config.integrationMode === 'docked';
-    document.body.classList.toggle('liquid-glass', navigator.platform.startsWith('Mac'));
+    document.body.classList.toggle('liquid-glass', isMac);
     document.body.classList.toggle('docked', isPinned);
     document.body.classList.toggle('docked-move-mode', Boolean(config.dockedMoveMode));
-    document.body.classList.toggle('popover', navigator.platform.startsWith('Mac') && isPinned);
+    document.body.classList.toggle('popover', isMac && isPinned);
 
     if (pinBtn) {
         pinBtn.classList.toggle('pinned', isPinned);
@@ -181,17 +183,11 @@ function clearInput(immediate = false) {
 }
 
 function getShortcutSubfolderIndex(event) {
-    if (event.ctrlKey || event.metaKey) {
-        const ctrlIndex = config.sousDossiers.findIndex(subfolder => subfolder.raccourci === 'Ctrl+Enter');
-        return ctrlIndex >= 0 ? ctrlIndex : 0;
-    }
-
-    if (event.shiftKey) {
-        const shiftIndex = config.sousDossiers.findIndex(subfolder => subfolder.raccourci === 'Shift+Enter');
-        return shiftIndex >= 0 ? shiftIndex : 0;
-    }
-
-    return 0;
+    return Shared.resolveSubfolderIndex(
+        event,
+        config.sousDossiers,
+        Shared.defaultSubfolderIndex(config.sousDossiers)
+    );
 }
 
 function handleKeydown(event) {

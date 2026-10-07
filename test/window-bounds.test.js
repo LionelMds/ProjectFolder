@@ -5,6 +5,7 @@ const test = require('node:test');
 const {
   calculateMiniBounds,
   detectReservedScreenEdge,
+  expandMiniBounds,
   fitWindowToWorkArea
 } = require('../src/main/window-bounds');
 
@@ -52,6 +53,31 @@ test('custom docked positions are preserved on a secondary display', () => {
   });
 
   assert.deepEqual(bounds, { x: 3000, y: 1200, width: 300, height: 44 });
+});
+
+test('a docked mini bar near the right edge grows leftwards and collapses back', () => {
+  const base = { x: 1920 - 260 - 8, y: 1080 - 44 - 0 };
+  const expanded = expandMiniBounds(base, 388, primaryDisplay.bounds, { padding: 0 });
+
+  assert.deepEqual(expanded, { x: 1920 - 388 - 8, y: base.y, width: 388, height: 44 });
+  assert.ok(expanded.x + expanded.width <= 1920);
+  assert.deepEqual(
+    expandMiniBounds(base, 260, primaryDisplay.bounds, { padding: 0 }),
+    { x: base.x, y: base.y, width: 260, height: 44 }
+  );
+});
+
+test('a floating mini bar with room on its right keeps its left edge', () => {
+  const expanded = expandMiniBounds({ x: 830, y: 990 }, 388, primaryDisplay.workArea);
+
+  assert.deepEqual(expanded, { x: 830, y: 988, width: 388, height: 44 });
+});
+
+test('an expanded mini bar never leaves the display', () => {
+  const expanded = expandMiniBounds({ x: -40, y: 500 }, 520, primaryDisplay.workArea);
+
+  assert.equal(expanded.x, 8);
+  assert.equal(expanded.width, 520);
 });
 
 test('large dialogs fit inside small work areas', () => {

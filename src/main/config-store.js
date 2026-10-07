@@ -175,6 +175,7 @@ function validateSettingsInput(input) {
     assertRelativeSubfolderPath(subfolder.chemin);
     return subfolder;
   });
+  assertUniqueSubfolderShortcuts(sousDossiers);
 
   if (!VALID_INTEGRATION_MODES.includes(input.integrationMode)) {
     throw new Error("Le mode d'intégration est invalide.");
@@ -205,6 +206,21 @@ function validateSettingsInput(input) {
   };
 }
 
+function assertUniqueSubfolderShortcuts(subfolders) {
+  const owners = new Map();
+  for (const subfolder of subfolders) {
+    if (!subfolder.raccourci) {
+      continue;
+    }
+    if (owners.has(subfolder.raccourci)) {
+      throw new Error(
+        `Le raccourci ${subfolder.raccourci} est attribué à « ${owners.get(subfolder.raccourci)} » et à « ${subfolder.nom} ».`
+      );
+    }
+    owners.set(subfolder.raccourci, subfolder.nom);
+  }
+}
+
 function assertRelativeSubfolderPath(value) {
   const normalized = normalizeRelativePath(value);
   if (!normalized) {
@@ -230,6 +246,27 @@ function normalizeRelativePath(value) {
 
 function truncate(value, maxLength) {
   return value.length > maxLength ? value.slice(0, maxLength) : value;
+}
+
+const TRANSIENT_LOCK_CODES = new Set(['EPERM', 'EBUSY', 'EACCES']);
+const FILE_LOCK_RETRY_DELAYS_MS = [15, 40, 90, 160];
+
+// Antivirus scanners, indexers and sync clients briefly lock files on Windows.
+function withFileLockRetry(operation, delays = FILE_LOCK_RETRY_DELAYS_MS) {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      return operation();
+    } catch (error) {
+      if (!TRANSIENT_LOCK_CODES.has(error.code) || attempt >= delays.length) {
+        throw error;
+      }
+      sleepSync(delays[attempt]);
+    }
+  }
+}
+
+function sleepSync(milliseconds) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, milliseconds);
 }
 
 function sanitizeVersion(value) {
@@ -267,13 +304,18 @@ class ConfigStore {
 
     if (loaded.error) {
       this.preserveCorruptConfig(loaded.error);
-      const backup = this.readConfigFile(this.backupPath);
-      if (backup.ok) {
-        this.config = migrateConfig(backup.value, this.platform);
-        this.save();
-        this.log('warn', 'Configuration restored from backup');
-        return this.config;
-      }
+    }
+
+    // A missing primary file can also mean an interrupted write: the backup
+    // is still the last known good configuration.
+    const backup = this.readConfigFile(this.backupPath);
+    if (backup.ok) {
+      this.config = migrateConfig(backup.value, this.platform);
+      this.save();
+      this.log('warn', 'Configuration restored from backup', {
+        reason: loaded.error ? 'corrupt' : 'missing'
+      });
+      return this.config;
     }
 
     this.config = createDefaultConfig();
@@ -306,7 +348,6 @@ class ConfigStore {
     const serialized = `${JSON.stringify(nextConfig, null, 2)}\n`;
     const tempPath = `${this.configPath}.${process.pid}.${Date.now()}.tmp`;
     let descriptor = null;
-    let movedCurrentToBackup = false;
 
     try {
       descriptor = fs.openSync(tempPath, 'w', 0o600);
@@ -315,28 +356,29 @@ class ConfigStore {
       fs.closeSync(descriptor);
       descriptor = null;
 
-      if (fs.existsSync(this.configPath)) {
-        fs.rmSync(this.backupPath, { force: true });
-        fs.renameSync(this.configPath, this.backupPath);
-        movedCurrentToBackup = true;
-      }
-
-      fs.renameSync(tempPath, this.configPath);
+      this.backupCurrentConfig();
+      // rename() replaces the destination atomically on Windows and POSIX, so
+      // config.json is never missing while the new version is promoted.
+      withFileLockRetry(() => fs.renameSync(tempPath, this.configPath));
     } catch (error) {
       if (descriptor !== null) {
         fs.closeSync(descriptor);
       }
       fs.rmSync(tempPath, { force: true });
-
-      if (
-        movedCurrentToBackup
-        && !fs.existsSync(this.configPath)
-        && fs.existsSync(this.backupPath)
-      ) {
-        fs.renameSync(this.backupPath, this.configPath);
-      }
-
       throw error;
+    }
+  }
+
+  backupCurrentConfig() {
+    if (!fs.existsSync(this.configPath)) {
+      return;
+    }
+
+    try {
+      withFileLockRetry(() => fs.copyFileSync(this.configPath, this.backupPath));
+    } catch (error) {
+      // A stale backup is preferable to refusing to save the new configuration.
+      this.log('warn', 'Configuration backup failed', { error: error.message });
     }
   }
 
@@ -397,10 +439,12 @@ class ConfigStore {
 module.exports = {
   ConfigStore,
   assertRelativeSubfolderPath,
+  assertUniqueSubfolderShortcuts,
   createDefaultConfig,
   migrateConfig,
   normalizePosition,
   sanitizeSubfolder,
   sanitizeSubfolders,
-  validateSettingsInput
+  validateSettingsInput,
+  withFileLockRetry
 };

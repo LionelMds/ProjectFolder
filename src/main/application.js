@@ -96,6 +96,7 @@ class ApplicationController {
         });
       },
       getUpdateState: () => this.updaterService.state,
+      prepareFolderOpening: () => this.folderOpener.prepare(),
       quit: () => {
         app.isQuitting = true;
         app.quit();
@@ -168,7 +169,7 @@ class ApplicationController {
 
   registerInitialGlobalShortcut() {
     const shortcut = this.configStore.config.raccourciGlobal;
-    if (!this.registerShortcut(shortcut)) {
+    if (this.registerShortcut(shortcut) !== 'registered') {
       this.notifyError(
         'Raccourci global indisponible',
         `Impossible d'enregistrer: ${this.windowManager.formatShortcutLabel(shortcut)}`
@@ -176,6 +177,8 @@ class ApplicationController {
     }
   }
 
+  // Returns 'registered', 'in-use' (taken by another application) or
+  // 'invalid' (Electron cannot parse the accelerator).
   registerShortcut(shortcut) {
     try {
       const registered = this.electron.globalShortcut.register(
@@ -184,14 +187,16 @@ class ApplicationController {
       );
       if (registered) {
         this.logger.info('Global shortcut registered', { shortcut });
+        return 'registered';
       }
-      return registered;
+      this.logger.warn('Global shortcut already in use', { shortcut });
+      return 'in-use';
     } catch (error) {
       this.logger.error('Global shortcut registration failed', {
         shortcut,
         error: error.message
       });
-      return false;
+      return 'invalid';
     }
   }
 
@@ -203,11 +208,13 @@ class ApplicationController {
     }
 
     globalShortcut.unregister(previousShortcut);
-    if (!this.registerShortcut(nextShortcut)) {
+    const status = this.registerShortcut(nextShortcut);
+    if (status !== 'registered') {
       this.registerShortcut(previousShortcut);
-      throw new Error(
-        `Le raccourci ${this.windowManager.formatShortcutLabel(nextShortcut)} est déjà utilisé.`
-      );
+      const label = this.windowManager.formatShortcutLabel(nextShortcut);
+      throw new Error(status === 'invalid'
+        ? `Le raccourci ${label} n'est pas valide.`
+        : `Le raccourci ${label} est déjà utilisé par une autre application.`);
     }
 
     return () => {
@@ -249,6 +256,7 @@ class ApplicationController {
 
     this.ipcRouter.handle('resolve-project', [MAIN, MINI], async (event, rawInput) => {
       const projectInput = validateProjectInput(rawInput);
+      this.folderOpener.prepare();
       const project = await this.projectService.resolveProjectInput(projectInput);
       return project
         ? {
@@ -279,7 +287,10 @@ class ApplicationController {
       return { success: true };
     });
 
-    this.ipcRouter.handle('mini-bar-focused', [MINI], async () => ({ success: true }));
+    this.ipcRouter.handle('mini-bar-focused', [MINI], async () => {
+      this.folderOpener.prepare();
+      return { success: true };
+    });
     this.ipcRouter.handle('toggle-mini-pin', [MINI], async () => (
       this.windowManager.toggleMiniPin()
     ));
@@ -344,6 +355,8 @@ class ApplicationController {
     );
     const result = await this.folderOpener.open(folderPath, config.openBehavior);
     if (!result.success) {
+      // The project may have been moved or renamed since it was resolved.
+      this.projectService.forgetProject(projectInput);
       this.notifyError('Ouverture impossible', result.error);
       return result;
     }
@@ -431,6 +444,7 @@ class ApplicationController {
     this.unregisterDisplayListeners();
     this.electron.globalShortcut.unregisterAll();
     this.ipcRouter.dispose();
+    this.folderOpener.dispose();
     this.updaterService.dispose();
     this.windowManager.dispose();
     this.logger.info('Application disposed');

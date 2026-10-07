@@ -15,7 +15,7 @@ const laterBtn = document.getElementById('laterBtn');
 const closeBtn = document.getElementById('closeBtn');
 
 function init() {
-    if (navigator.platform.startsWith('Mac')) {
+    if (window.electronAPI.platform === 'darwin') {
         document.body.classList.add('liquid-glass');
     }
 
