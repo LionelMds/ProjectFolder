@@ -5,6 +5,7 @@ const { EventEmitter } = require('events');
 const test = require('node:test');
 const {
   UpdaterService,
+  extractReleaseNoteItems,
   formatBytes,
   normalizeReleaseNotes
 } = require('../src/main/updater-service');
@@ -60,7 +61,7 @@ test('download progress updates both the dialog and system progress', () => {
 
   assert.equal(service.state.status, 'downloading');
   assert.equal(service.state.percent, 42.5);
-  assert.equal(service.state.speedLabel, '2.0 KB/s');
+  assert.equal(service.state.speedLabel, '2 Ko/s');
   assert.equal(windows.progress.at(-1), 0.425);
   service.dispose();
 });
@@ -189,8 +190,23 @@ test('background update errors stay silent', () => {
   service.dispose();
 });
 
+test('sizes are written in French units', () => {
+  assert.equal(formatBytes(1536), '2 Ko');
+  assert.equal(formatBytes(31142707), '29,7 Mo');
+  assert.equal(formatBytes(0), '0 o');
+});
+
+test('release notes become a list of changes without the installation section', () => {
+  const notes = normalizeReleaseNotes(
+    '<h2>Améliorations</h2><ul><li>Ouverture <b>plus rapide</b></li><li>Recherche &amp; cache</li></ul>'
+    + '<h2>Installation</h2><ul><li>Windows x64 : <code>Setup.exe</code></li></ul>'
+  );
+
+  assert.deepEqual(extractReleaseNoteItems(notes), ['Ouverture plus rapide', 'Recherche & cache']);
+  assert.deepEqual(extractReleaseNoteItems('Corrections de stabilité'), ['Corrections de stabilité']);
+});
+
 test('release notes are converted to plain text', () => {
-  assert.equal(formatBytes(1536), '1.5 KB');
   assert.equal(
     normalizeReleaseNotes('<b>Correction</b> importante'),
     'Correction importante'

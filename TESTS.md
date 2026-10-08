@@ -14,6 +14,15 @@
 3. Vérifier que l'icône apparaît dans la zone de notification Windows ou la barre de menus macOS.
 4. Si le dossier racine est vide, vérifier que la fenêtre Paramètres s'ouvre automatiquement.
 
+## Popup en deux volets
+
+1. Ouvrir la recherche sans rien taper : le récent sélectionné est prévisualisé à droite (« récent », « ouvert il y a … »), `Entrée` le rouvre.
+2. Taper deux chiffres : les récents sont filtrés (« 2 / 5 »), les chiffres tapés sont surlignés et « __ » complète le champ.
+3. Taper un numéro existant : en-tête « trouvé » avec le chemin, table des sous-dossiers, sous-dossier `Entrée` présélectionné.
+4. Appuyer puis relâcher `Alt` seul : le mode « Ouvrir dans » passe à l'option suivante ; ouvrir et vérifier que ce mode est utilisé.
+5. Taper un numéro inexistant : « introuvable », années cherchées et numéros les plus proches ; `Entrée` reprend le plus proche.
+6. Passer Windows en thème sombre : les fenêtres passent sur le fond bleu acier.
+
 ## Recherche principale
 
 1. Ouvrir la recherche avec `Ctrl+Shift+P` sur Windows ou `Cmd+Shift+P` sur macOS.
@@ -36,22 +45,30 @@
 3. Enregistrer.
 4. Vérifier que la mini-barre apparaît et qu'elle peut être déplacée.
 5. Redémarrer l'application et vérifier que la position est restaurée.
-6. Taper quatre chiffres et vérifier que les boutons emoji apparaissent après le redimensionnement.
+6. Taper quatre chiffres et vérifier que l'année et les boutons de sous-dossiers apparaissent sans que la barre se déplace.
 7. Taper quatre chiffres inexistants et vérifier que les boutons n'apparaissent pas.
-8. Cliquer sur chaque bouton emoji d'un projet valide et vérifier que le sous-dossier correspondant s'ouvre.
+8. Cliquer sur chaque bouton de sous-dossier d'un projet valide et vérifier que le sous-dossier correspondant s'ouvre.
 
 ## Mini-barre épinglée Windows
 
-1. Sur Windows, cliquer sur le bouton 📌 de la mini-barre.
-2. Vérifier que la mini-barre est superposée à la barre des tâches, près de la zone de notification.
-3. Déplacer la barre des tâches en haut, à gauche, à droite puis en bas.
-4. Vérifier que la mini-barre ne se repositionne pas automatiquement après ces changements.
-5. Vérifier que la poignée `⋮⋮` ne déplace pas la barre tant que le mode déplacement n'est pas activé.
-6. Dans le menu tray, activer "Déplacer la barre épinglée".
-7. Déplacer la mini-barre avec la poignée `⋮⋮` sur un autre écran.
-8. Désactiver "Déplacer la barre épinglée", redémarrer l'application et vérifier que la position personnalisée est restaurée.
-9. Taper quatre chiffres et vérifier que l'apparition des boutons ne recale pas la barre automatiquement.
-10. Cliquer de nouveau sur 📌 et vérifier que la mini-barre redevient flottante.
+1. Sur Windows, glisser la mini-barre flottante sur la barre des tâches, à l'endroit voulu, puis cliquer sur le bouton 📌.
+2. Vérifier que la mini-barre reste exactement à cet endroit, sans se déplacer.
+3. Taper quatre chiffres et vérifier que la barre ne saute pas au moment où la coche verte et les boutons apparaissent.
+4. Déplacer la barre des tâches en haut, à gauche, à droite puis en bas.
+5. Vérifier que la mini-barre ne se repositionne pas automatiquement après ces changements.
+6. Vérifier que la poignée `⋮⋮` ne déplace pas la barre tant que le mode déplacement n'est pas activé.
+7. Dans le menu tray, activer "Déplacer la barre épinglée".
+8. Déplacer la mini-barre avec la poignée `⋮⋮` sur un autre écran.
+9. Désactiver "Déplacer la barre épinglée", redémarrer l'application et vérifier que la position personnalisée est restaurée.
+10. Taper quatre chiffres et vérifier que l'apparition des boutons ne recale pas la barre automatiquement.
+11. Cliquer de nouveau sur 📌 et vérifier que la mini-barre redevient flottante.
+
+## Volet déroulant de la mini-barre
+
+1. Cliquer dans le champ de la mini-barre : un volet « récents | aperçu » s'ouvre.
+2. Avec la mini-barre posée sur la barre des tâches, vérifier que le volet s'ouvre vers le haut et que la barre ne bouge pas.
+3. Près du bord droit de l'écran, vérifier que la barre et le volet s'étendent vers la gauche.
+4. Cliquer ailleurs : le volet se referme et la fenêtre reprend sa taille.
 
 ## Popover barre de menus macOS
 
@@ -85,8 +102,8 @@
 
 1. Changer le dossier racine avec "Parcourir".
 2. Ajouter un sous-dossier.
-3. Modifier son nom, son chemin, son raccourci et son emoji.
-4. Ouvrir le sélecteur d'emojis et vérifier les sept catégories.
+3. Modifier son nom, son chemin, sa touche et son icône.
+4. Ouvrir le sélecteur d'icônes (+) et vérifier les six catégories.
 5. Déplacer le sous-dossier avec `▲` et `▼`.
 6. Supprimer le sous-dossier.
 7. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
@@ -137,7 +154,7 @@
 5. Lancer l'ancienne version installée.
 6. Attendre au moins 30 secondes et vérifier qu'aucune recherche, notification ou fenêtre de mise à jour n'apparaît.
 7. Redémarrer l'application, verrouiller puis déverrouiller la session et effectuer une sortie de veille ; vérifier que l'updater ne s'affiche jamais.
-8. Ouvrir le menu de l'icône, cliquer sur "Vérifier les mises à jour...", puis sur "Télécharger et installer".
+8. Ouvrir le menu de l'icône, cliquer sur "Rechercher une mise à jour…", puis sur "Télécharger et installer".
 9. Vérifier la barre de téléchargement, la vitesse et la progression.
 10. Vérifier que l'application se ferme, que l'installateur démarre, puis que l'application se relance après installation.
 
@@ -158,5 +175,5 @@
 5. Lancer l'ancienne version installée.
 6. Vérifier qu'aucune recherche, notification ou fenêtre de mise à jour n'apparaît spontanément.
 7. Redémarrer l'application et effectuer une sortie de veille ; vérifier que l'updater reste invisible.
-8. Ouvrir le menu de l'icône, cliquer sur "Vérifier les mises à jour...", puis sur "Télécharger et installer".
+8. Ouvrir le menu de l'icône, cliquer sur "Rechercher une mise à jour…", puis sur "Télécharger et installer".
 9. Vérifier la barre de téléchargement, la progression, l'installation et le redémarrage.

@@ -125,3 +125,32 @@ function createProjectRoot(t) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   return directory;
 }
+
+test('the closest existing numbers are suggested for a missing project', async t => {
+  const root = createProjectRoot(t);
+  for (const name of ['2026/2026-4889', '2026/2026-4895', '2025/2025-4891', '2024/2024-1200']) {
+    fs.mkdirSync(path.join(root, ...name.split('/')), { recursive: true });
+  }
+  const service = new ProjectService(() => ({ racine: root }));
+
+  assert.deepEqual(await service.findNearestProjects('4890'), [
+    { projectNumber: '2026-4889', year: '2026' },
+    { projectNumber: '2025-4891', year: '2025' }
+  ]);
+  assert.deepEqual(await service.listYears(), ['2026', '2025', '2024']);
+});
+
+test('a candidate root is inspected before it is saved', async t => {
+  const root = createProjectRoot(t);
+  fs.mkdirSync(path.join(root, '2026', '2026-0001'), { recursive: true });
+  fs.mkdirSync(path.join(root, '2026', '2026-0002'));
+  fs.mkdirSync(path.join(root, '2026', 'Archives'));
+  fs.mkdirSync(path.join(root, 'Modèles'));
+  const service = new ProjectService(() => ({ racine: '' }));
+
+  assert.deepEqual(await service.inspectRoot(root), {
+    exists: true,
+    years: [{ year: '2026', projects: 2 }]
+  });
+  assert.deepEqual(await service.inspectRoot(path.join(root, 'absent')), { exists: false, years: [] });
+});

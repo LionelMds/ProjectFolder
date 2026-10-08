@@ -5,51 +5,37 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'">
     <title>Mise à jour</title>
+    <link rel="stylesheet" href="src/ui/industry.css">
     <link rel="stylesheet" href="update.css">
 </head>
 
 <body>
-    <main class="update-container" role="dialog" aria-label="Mise à jour Project Folder Launcher">
-        <div class="title-bar">
-            <h1>Mise à jour</h1>
-            <button class="title-bar-btn" id="closeBtn" type="button" aria-label="Fermer">✕</button>
-        </div>
+    <main class="update window blueprint" role="dialog" aria-label="Mise à jour Project Folder Launcher">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 
-        <section class="update-content">
-            <div class="status-icon" id="statusIcon" aria-hidden="true">⬇</div>
-            <h2 id="statusTitle">Recherche de mise à jour...</h2>
-            <p id="statusMessage">Veuillez patienter.</p>
+        <header class="title-bar update-header">
+            <h1><ui-icon name="download" size="16"></ui-icon>Mise à jour</h1>
+            <button class="icon-btn" id="closeBtn" type="button" aria-label="Fermer">
+                <ui-icon name="x" size="16"></ui-icon>
+            </button>
+        </header>
 
-            <div class="version-row">
-                <span>Version installée</span>
-                <strong id="currentVersion">-</strong>
-            </div>
-            <div class="version-row">
-                <span>Version disponible</span>
-                <strong id="availableVersion">-</strong>
-            </div>
+        <section class="update-versions" id="versionPane" aria-label="Versions"></section>
+        <section class="update-detail" id="detailPane" aria-live="polite"></section>
 
-            <div class="progress-area" id="progressArea">
-                <div class="progress-track" aria-label="Progression du téléchargement">
-                    <div class="progress-bar" id="progressBar"></div>
-                </div>
-                <div class="progress-meta">
-                    <span id="progressLabel">0 %</span>
-                    <span id="speedLabel"></span>
-                </div>
-            </div>
-
-            <pre class="release-notes" id="releaseNotes"></pre>
-        </section>
-
-        <div class="update-actions">
+        <footer class="dialog-footer update-footer">
             <button class="btn btn-secondary" id="laterBtn" type="button">Plus tard</button>
-            <button class="btn btn-primary" id="primaryBtn" type="button">Télécharger et installer</button>
-        </div>
+            <button class="btn btn-primary blueprint" id="primaryBtn" type="button">
+                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                <span id="primaryLabel">Vérifier</span>
+            </button>
+        </footer>
     </main>
 
+    <script src="src/shared/launcher-shared.js"></script>
+    <script src="src/shared/icons.js"></script>
     <script src="update-renderer.js"></script>
 </body>
 

@@ -1,0 +1,442 @@
+/* Industry design system (Claude Design handoff "Launcher UX"), adapted for the
+   launcher: fonts are bundled (offline, CSP), a dark ground follows the system
+   theme, and the shared window pieces (panes, rows, segmented controls, ruled
+   progress) live here so every window draws them the same way. */
+
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 400; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 400; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 500; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-500-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 500; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-ext-500-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 700; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-700-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow"; font-style: normal; font-weight: 700; font-display: block;
+  src: url("../../assets/fonts/barlow-latin-ext-700-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 400; font-display: block;
+  src: url("../../assets/fonts/barlow-condensed-latin-400-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 400; font-display: block;
+  src: url("../../assets/fonts/barlow-condensed-latin-ext-400-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: block;
+  src: url("../../assets/fonts/barlow-condensed-latin-600-normal.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 600; font-display: block;
+  src: url("../../assets/fonts/barlow-condensed-latin-ext-600-normal.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+
+:root {
+  --color-bg: #f2f2f3;
+  --color-surface: #e9e9ea;
+  --color-text: #1d1f20;
+  --color-accent: #5980a6;
+  --color-divider: color-mix(in srgb, #1d1f20 16%, transparent);
+
+  --color-neutral-100: #f5f5f8;
+  --color-neutral-200: #e7e7ea;
+  --color-neutral-300: #d4d4d7;
+  --color-neutral-400: #b7b7ba;
+  --color-neutral-500: #98989b;
+  --color-neutral-600: #7a7a7d;
+  --color-neutral-700: #5d5d60;
+  --color-neutral-800: #424244;
+  --color-neutral-900: #2b2b2d;
+
+  --color-accent-100: #eef6ff;
+  --color-accent-200: #d6ebff;
+  --color-accent-300: #b5d9fd;
+  --color-accent-400: #94bce3;
+  --color-accent-500: #749dc4;
+  --color-accent-600: #597ea3;
+  --color-accent-700: #416180;
+  --color-accent-800: #2c455d;
+  --color-accent-900: #1d2d3d;
+
+  --font-heading: "Barlow Condensed", system-ui, sans-serif;
+  --font-heading-weight: 600;
+  --font-body: "Barlow", system-ui, sans-serif;
+
+  --space-1: 3.4px;
+  --space-2: 6.8px;
+  --space-3: 10.2px;
+  --space-4: 13.6px;
+
+  --shadow-sm: 0 1px 2px color-mix(in srgb, #2b2b2d 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, #2b2b2d 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, #2b2b2d 22%, transparent);
+
+  /* Tinted fill of a selected row (12 % of the accent on the light ground). */
+  --selection-fill: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  --muted: color-mix(in srgb, var(--color-text) 55%, transparent);
+  color-scheme: light;
+}
+
+/* Dark ground: the deep steel step as background (design 2b). */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1d2d3d;
+    --color-surface: #24384c;
+    --color-text: #eef2f6;
+    --color-accent: #94bce3;
+    --color-accent-100: #2c455d;
+    --color-accent-600: #b5d9fd;
+    --color-accent-700: #b5d9fd;
+    --color-accent-800: #d6ebff;
+    --color-divider: color-mix(in srgb, #eef2f6 18%, transparent);
+    --color-neutral-100: color-mix(in srgb, #eef2f6 10%, transparent);
+    --color-neutral-800: #eef2f6;
+    --shadow-md: 0 3px 10px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.04);
+    --selection-fill: color-mix(in srgb, var(--color-accent) 16%, transparent);
+    color-scheme: dark;
+  }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+/* Windows are transparent so the frame's registration marks and shadow can
+   be drawn around the opaque panel. */
+body {
+  background: transparent;
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: 15px;
+  line-height: 1.55;
+  overflow: hidden;
+  user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+code { font-family: ui-monospace, Consolas, monospace; font-size: 0.92em; }
+
+.text-muted { color: var(--muted); }
+[hidden] { display: none !important; }
+:focus { outline: none; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+/* Text fields show focus through their own border, never with a ring. */
+input[type="text"]:focus-visible { outline: none; }
+::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+
+/* — scrollbars: thin hairline rails — */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-divider); border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb, var(--color-text) 30%, transparent); }
+
+/* — blueprint frame with "+" registration marks — */
+.blueprint {
+  position: relative;
+  border: 1px solid var(--color-divider);
+  border-radius: 0;
+}
+.blueprint > .corner {
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  pointer-events: none;
+}
+.blueprint > .corner::before,
+.blueprint > .corner::after { content: ""; position: absolute; background: currentColor; }
+.blueprint > .corner::before { left: 5px; top: 0; width: 1px; height: 100%; }
+.blueprint > .corner::after { top: 5px; left: 0; width: 100%; height: 1px; }
+.blueprint > .corner.tl { top: -6px; left: -6px; }
+.blueprint > .corner.tr { top: -6px; right: -6px; }
+.blueprint > .corner.bl { bottom: -6px; left: -6px; }
+.blueprint > .corner.br { bottom: -6px; right: -6px; }
+
+/* The opaque panel each window draws inside its transparent frame. */
+.window {
+  background: var(--color-bg);
+  color: var(--color-text);
+  box-shadow: var(--shadow-lg);
+}
+
+/* — buttons — */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--font-heading);
+  font-weight: var(--font-heading-weight);
+  font-size: 14px;
+  line-height: 1.2;
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-divider);
+  border-radius: 0;
+  padding: var(--space-2) calc(var(--space-3) * 1.2);
+  white-space: nowrap;
+}
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: var(--color-bg); }
+.btn-primary:not(:disabled):hover { background: var(--color-accent-600); border-color: var(--color-accent-600); }
+.btn-primary:not(:disabled):active { background: var(--color-accent-700); }
+.btn-secondary:not(:disabled):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.btn-secondary:not(:disabled):active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+.btn-ghost { border-color: transparent; color: var(--color-accent-700); padding-inline: var(--space-1); }
+.btn-ghost:not(:disabled):hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+}
+.icon-btn:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.icon-btn:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
+
+/* — fields — */
+.field > label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 5px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.input {
+  width: 100%;
+  min-height: 34px;
+  padding: 6px 10px;
+  font-size: 14px;
+  color: var(--color-text);
+  caret-color: var(--color-accent);
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: 0;
+}
+.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
+/* Text fields only change their border: no ring around them. */
+.input:focus, .input:focus-visible { border-color: var(--color-accent); outline: none; }
+.input[readonly] { cursor: default; }
+
+/* — tags — */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+  padding: 3px 10px;
+  border-radius: 0;
+  white-space: nowrap;
+}
+.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
+.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
+.tag-outline { border: 1px solid var(--color-text); color: var(--color-text); padding: 2px 9px; }
+
+/* — tables — */
+.table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.table th {
+  text-align: left;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+  white-space: nowrap;
+}
+.table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+.table tbody tr { cursor: pointer; }
+.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.table tbody tr.selected { background: var(--selection-fill); }
+.table tbody tr.selected .row-icon { color: var(--color-accent-700); }
+.table .num { text-align: right; white-space: nowrap; }
+.table .cell-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.table .cell-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.table .cell-path {
+  max-width: 0;
+  width: 45%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* — panes: list | detail, separated by a hairline — */
+.kicker {
+  display: flex;
+  justify-content: space-between;
+  font: 500 10.5px/1 var(--font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.list { display: flex; flex-direction: column; font-size: 13px; }
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  background: transparent;
+  text-align: left;
+  min-width: 0;
+}
+.list-row:last-child { border-bottom: 0; }
+.list-row > .row-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.list-row .row-icon { color: var(--muted); }
+.list-row:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.list-row.selected { background: var(--selection-fill); }
+.list-row.selected .row-icon { color: var(--color-accent-700); }
+.match { font-weight: 700; color: var(--color-accent-700); }
+
+.headline {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.headline-number { font: 600 30px/1 var(--font-heading); white-space: nowrap; }
+.headline-number.pending { color: color-mix(in srgb, var(--color-text) 40%, transparent); }
+.headline-meta {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.table-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+.table-scroll .table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg);
+}
+
+/* A dashed note: hints, warnings and empty states. */
+.note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px dashed var(--color-divider);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* A dashed warning with its icon. */
+.alert {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border: 1px dashed var(--color-divider);
+  font-size: 13px;
+}
+.alert-detail { font-size: 12px; color: var(--muted); }
+
+/* — segmented control — */
+.seg { display: inline-flex; border: 1px solid var(--color-divider); font-size: 12.5px; }
+.seg-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  line-height: 1.2;
+}
+.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
+.seg-opt[aria-pressed="true"], .seg-opt[aria-checked="true"] { background: var(--color-accent); color: var(--color-bg); }
+.seg-opt:not([aria-pressed="true"]):not([aria-checked="true"]):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
+.seg-opt:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+
+/* — switch (square, like the blueprint) — */
+.switch {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--color-divider);
+  background: transparent;
+}
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  background: color-mix(in srgb, var(--color-text) 40%, transparent);
+  transition: left 0.12s ease;
+}
+.switch[aria-checked="true"] { border-color: var(--color-accent); background: var(--color-accent); }
+.switch[aria-checked="true"]::after { left: 18px; background: var(--color-bg); }
+
+/* — progress drawn as a ruler — */
+.ruler { position: relative; height: 16px; border: 1px solid var(--color-divider); }
+.ruler-fill { position: absolute; inset: 0 auto 0 0; width: 0; background: var(--color-accent); transition: width 0.2s ease; }
+.ruler::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), var(--color-divider) calc(10% - 1px) 10%);
+}
+
+/* — loading — */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
+.skeleton { display: block; height: 12px; background: color-mix(in srgb, var(--color-text) 8%, transparent); }
+
+/* — window header and footer of the dialogs — */
+.title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-divider);
+  -webkit-app-region: drag;
+}
+.title-bar h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font: 600 18px/1 var(--font-heading);
+}
+.title-bar button { -webkit-app-region: no-drag; }
+.dialog-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--color-divider);
+}
+
+ui-icon { display: inline-flex; flex: none; }
+ui-icon > svg { display: block; }

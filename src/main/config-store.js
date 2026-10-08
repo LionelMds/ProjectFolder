@@ -13,16 +13,22 @@ const {
   VALID_SUBFOLDER_SHORTCUTS
 } = require('./constants');
 const { normalizeRecentFolders } = require('./recent-folders');
+const { hasIcon } = require('../shared/icons');
+const { iconNameFor } = require('../shared/launcher-shared');
+
+// Schema 3 drew the mini bar 4 px inside its window, schema 4 draws it 8 px
+// inside: saved window positions move by the difference so the bar stays put.
+const LEGACY_MINI_FRAME_SHIFT = 4;
 
 function createDefaultConfig() {
   return {
     schemaVersion: CONFIG_SCHEMA_VERSION,
     racine: '',
     sousDossiers: [
-      { nom: 'Dossier principal', chemin: '', raccourci: 'Enter', icone: '📁' },
-      { nom: "Plans d'exécution", chemin: "Plans\\Plan d'exécution", raccourci: 'Ctrl+Enter', icone: '📐' },
-      { nom: 'Fournisseurs', chemin: 'Fournisseurs', raccourci: 'Shift+Enter', icone: '🏭' },
-      { nom: 'Devis', chemin: 'Devis', raccourci: null, icone: '💰' }
+      { nom: 'Dossier principal', chemin: '', raccourci: 'Enter', icone: 'folder' },
+      { nom: "Plans d'exécution", chemin: "Plans\\Plan d'exécution", raccourci: 'Ctrl+Enter', icone: 'ruler' },
+      { nom: 'Fournisseurs', chemin: 'Fournisseurs', raccourci: 'Shift+Enter', icone: 'factory' },
+      { nom: 'Devis', chemin: 'Devis', raccourci: null, icone: 'file-text' }
     ],
     raccourciGlobal: 'CommandOrControl+Shift+P',
     autoStart: false,
@@ -52,7 +58,8 @@ function sanitizeSubfolder(entry, index = 0) {
     nom: truncate(String(source.nom || fallbackName).trim(), MAX_LABEL_LENGTH) || fallbackName,
     chemin: truncate(normalizeRelativePath(source.chemin), MAX_RELATIVE_PATH_LENGTH),
     raccourci: shortcut,
-    icone: truncate(String(source.icone || '📁').trim(), 12) || '📁'
+    // Lucide icon name; former emoji are converted to their icon.
+    icone: iconNameFor(source.icone, hasIcon)
   };
 }
 
@@ -81,6 +88,10 @@ function normalizePosition(value) {
     x: Math.round(x),
     y: Math.round(y)
   };
+}
+
+function shiftPosition(position, delta) {
+  return position && delta ? { x: position.x + delta, y: position.y + delta } : position;
 }
 
 function migrateConfig(rawConfig, platform = process.platform) {
@@ -113,6 +124,8 @@ function migrateConfig(rawConfig, platform = process.platform) {
     }
   }
 
+  const positionShift = Number(source.schemaVersion) >= 4 ? 0 : -LEGACY_MINI_FRAME_SHIFT;
+
   const lastVisibleIntegrationMode = VALID_INTEGRATION_MODES.includes(legacyMiniBar.lastVisibleIntegrationMode)
     && legacyMiniBar.lastVisibleIntegrationMode !== 'hidden'
     ? legacyMiniBar.lastVisibleIntegrationMode
@@ -134,8 +147,8 @@ function migrateConfig(rawConfig, platform = process.platform) {
       lastNotifiedVersion: sanitizeVersion(sourceUpdates.lastNotifiedVersion)
     },
     miniBar: {
-      position: normalizePosition(legacyMiniBar.position),
-      dockedPosition: normalizePosition(legacyMiniBar.dockedPosition),
+      position: shiftPosition(normalizePosition(legacyMiniBar.position), positionShift),
+      dockedPosition: shiftPosition(normalizePosition(legacyMiniBar.dockedPosition), positionShift),
       dockedUseCustomPosition: Boolean(legacyMiniBar.dockedUseCustomPosition),
       lastVisibleIntegrationMode
     }

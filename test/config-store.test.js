@@ -28,7 +28,8 @@ test('legacy settings migrate to the current schema', t => {
   const store = new ConfigStore(configPath, { platform: 'win32' });
   const config = store.load();
 
-  assert.equal(config.schemaVersion, 3);
+  assert.equal(config.schemaVersion, 4);
+  assert.equal(config.sousDossiers[0].icone, 'folder');
   assert.equal(config.integrationMode, 'hidden');
   assert.equal(config.openBehavior, 'reuseWindow');
   assert.equal(config.autoStart, true);

@@ -4,8 +4,13 @@ const {
   MINI_BASE_WIDTH,
   MINI_DEFAULT_HEIGHT,
   MINI_EDGE_PADDING,
+  MINI_FRAME_MARGIN,
   MINI_MAX_WIDTH
 } = require('./constants');
+
+// The mini window has a transparent margin around the bar: that margin may
+// leave the display so the bar itself can touch the screen edges.
+const MINI_SCREEN_PADDING = -MINI_FRAME_MARGIN;
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
@@ -97,7 +102,7 @@ function calculateMiniBounds(options) {
       ...savedPoint,
       width,
       height
-    }, display.bounds);
+    }, display.bounds, MINI_SCREEN_PADDING);
   }
 
   const { bounds, workArea } = primaryDisplay;
@@ -142,34 +147,54 @@ function calculateMiniBounds(options) {
   }
 
   const saved = miniBar.position;
+  if (saved) {
+    const display = displayNearestPoint(saved);
+    // The user may have placed the bar on the taskbar: it only has to stay
+    // fully visible on its display, not inside the work area.
+    return clampBoundsToDisplay({
+      x: saved.x,
+      y: saved.y,
+      width,
+      height
+    }, display.bounds, MINI_SCREEN_PADDING);
+  }
+
   const fallback = {
     x: Math.round(workArea.x + (workArea.width - width) / 2),
     y: Math.round(workArea.y + workArea.height - height - 6)
   };
-  const point = saved || fallback;
-  const display = displayNearestPoint(point);
+  const display = displayNearestPoint(fallback);
 
   return clampBoundsToDisplay({
-    x: point.x,
-    y: point.y,
+    ...fallback,
     width,
     height
   }, display.workArea);
 }
 
-// Widens the mini bar from its collapsed position. A bar close to the right
-// edge grows leftwards so its buttons stay visible, and collapsing it again
-// returns exactly to the base position.
-function expandMiniBounds(basePosition, width, area, options = {}) {
-  const baseWidth = options.baseWidth ?? MINI_BASE_WIDTH;
-  const height = options.height ?? MINI_DEFAULT_HEIGHT;
-  const padding = options.padding ?? MINI_EDGE_PADDING;
-  const rightLimit = area.x + area.width - padding;
-  const x = basePosition.x + width > rightLimit
-    ? basePosition.x + baseWidth - width
+// Places the mini bar window around its base position (top-left of the
+// collapsed window), which never moves. A bar close to the right edge grows
+// leftwards; the drop-down pane opens below the bar, or above it when the bar
+// sits at the bottom of the display (on the taskbar). Collapsing returns
+// exactly to the base position.
+function layoutMiniBounds(basePosition, size, area) {
+  const { width, height } = size;
+  const collapsedWidth = size.collapsedWidth ?? width;
+  const collapsedHeight = size.collapsedHeight ?? height;
+  const right = area.x + area.width - MINI_SCREEN_PADDING;
+  const bottom = area.y + area.height - MINI_SCREEN_PADDING;
+  const x = basePosition.x + width > right
+    ? basePosition.x + collapsedWidth - width
     : basePosition.x;
+  const opensUp = height > collapsedHeight && basePosition.y + height > bottom;
+  const y = opensUp ? basePosition.y + collapsedHeight - height : basePosition.y;
 
-  return clampBoundsToDisplay({ x, y: basePosition.y, width, height }, area, padding);
+  return {
+    bounds: clampBoundsToDisplay({ x, y, width, height }, area, MINI_SCREEN_PADDING),
+    direction: opensUp ? 'up' : 'down',
+    // Grown leftwards: the content hangs from the right edge of the window.
+    align: x < basePosition.x ? 'right' : 'left'
+  };
 }
 
 function fitWindowToWorkArea(size, workArea, options = {}) {
@@ -192,6 +217,6 @@ module.exports = {
   clamp,
   clampBoundsToDisplay,
   detectReservedScreenEdge,
-  expandMiniBounds,
-  fitWindowToWorkArea
+  fitWindowToWorkArea,
+  layoutMiniBounds
 };

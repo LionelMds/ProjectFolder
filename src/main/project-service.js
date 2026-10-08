@@ -6,6 +6,7 @@ const { assertRelativeSubfolderPath } = require('./config-store');
 
 const FOUR_DIGITS = /^\d{4}$/;
 const FULL_PROJECT_NUMBER = /^20\d{2}-\d{4}$/;
+const YEAR_FOLDER = /^20\d{2}$/;
 // Typing validates a project, then opening it resolves it again: reusing the
 // answer avoids repeating network round trips on a mapped share.
 const RESOLUTION_CACHE_TTL_MS = 30 * 1000;
@@ -72,28 +73,82 @@ class ProjectService {
     return null;
   }
 
+  // Year folders of the root, newest first.
+  async listYears(rootDir = this.getConfig().racine) {
+    const root = String(rootDir || '').trim();
+    if (!root) {
+      return [];
+    }
+
+    try {
+      const entries = await this.fs.promises.readdir(root, { withFileTypes: true });
+      return entries
+        .filter(entry => entry.isDirectory() && YEAR_FOLDER.test(entry.name))
+        .map(entry => entry.name)
+        .sort((left, right) => right.localeCompare(left));
+    } catch {
+      return [];
+    }
+  }
+
+  async listProjectsOfYear(rootDir, year) {
+    try {
+      const entries = await this.fs.promises.readdir(this.path.join(rootDir, year), { withFileTypes: true });
+      const pattern = new RegExp(`^${year}-\\d{4}$`);
+      return entries
+        .filter(entry => entry.isDirectory() && pattern.test(entry.name))
+        .map(entry => entry.name);
+    } catch {
+      return [];
+    }
+  }
+
+  // Closest existing project numbers, for the "not found" suggestions.
+  async findNearestProjects(digits, limit = 2) {
+    if (!FOUR_DIGITS.test(String(digits || ''))) {
+      return [];
+    }
+
+    const root = String(this.getConfig().racine || '').trim();
+    const years = await this.listYears(root);
+    const perYear = await Promise.all(years.map(year => this.listProjectsOfYear(root, year)));
+    const target = Number(digits);
+
+    return perYear
+      .flat()
+      .map(projectNumber => ({
+        projectNumber,
+        year: projectNumber.slice(0, 4),
+        distance: Math.abs(Number(projectNumber.slice(5)) - target)
+      }))
+      .filter(project => project.distance > 0)
+      .sort((left, right) => left.distance - right.distance || right.year.localeCompare(left.year))
+      .slice(0, limit)
+      .map(({ projectNumber, year }) => ({ projectNumber, year }));
+  }
+
+  // Years and project counts under a candidate root, shown in the settings.
+  async inspectRoot(rootDir) {
+    const root = String(rootDir || '').trim();
+    if (!root || !this.path.isAbsolute(root) || !(await this.isDirectory(root))) {
+      return { exists: false, years: [] };
+    }
+
+    const years = await this.listYears(root);
+    const counts = await Promise.all(years.map(year => this.listProjectsOfYear(root, year)));
+    return {
+      exists: true,
+      years: years.map((year, index) => ({ year, projects: counts[index].length }))
+    };
+  }
+
   async findProjectByDigits(digits) {
     if (!FOUR_DIGITS.test(String(digits || ''))) {
       return null;
     }
 
-    const config = this.getConfig();
-    const rootDir = String(config.racine || '').trim();
-    if (!rootDir) {
-      return null;
-    }
-
-    let entries;
-    try {
-      entries = await this.fs.promises.readdir(rootDir, { withFileTypes: true });
-    } catch {
-      return null;
-    }
-
-    const candidates = entries
-      .filter(entry => entry.isDirectory() && /^20\d{2}$/.test(entry.name))
-      .map(entry => entry.name)
-      .sort((left, right) => right.localeCompare(left))
+    const rootDir = String(this.getConfig().racine || '').trim();
+    const candidates = (await this.listYears(rootDir))
       .map(year => ({
         projectNumber: `${year}-${digits}`,
         year,

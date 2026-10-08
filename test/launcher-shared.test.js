@@ -105,3 +105,37 @@ test('accelerators are displayed with platform modifier names', () => {
   assert.equal(formatAccelerator('Control+Alt+K', true), 'Ctrl+Alt+K');
   assert.equal(formatAccelerator('Super+Shift+P', false), 'Win+Shift+P');
 });
+
+test('popup key glyphs and shortcut chips follow the platform', () => {
+  const { formatKeyGlyph, formatAcceleratorChip } = require('../src/shared/launcher-shared');
+  assert.equal(formatKeyGlyph('Ctrl+Enter', false), 'Ctrl+↵');
+  assert.equal(formatKeyGlyph('Shift+Enter', true), '⇧↵');
+  assert.equal(formatKeyGlyph(null, false), '—');
+  assert.equal(formatAcceleratorChip('CommandOrControl+Shift+P', false), 'Ctrl+Shift+P');
+  assert.equal(formatAcceleratorChip('CommandOrControl+Shift+P', true), '⇧⌘P');
+});
+
+test('former emoji icons become Lucide icons', () => {
+  const { iconNameFor } = require('../src/shared/launcher-shared');
+  const { hasIcon } = require('../src/shared/icons');
+  assert.equal(iconNameFor('📐', hasIcon), 'ruler');
+  assert.equal(iconNameFor('⚙️', hasIcon), 'settings');
+  assert.equal(iconNameFor('⚙', hasIcon), 'settings');
+  assert.equal(iconNameFor('factory', hasIcon), 'factory');
+  assert.equal(iconNameFor('🦄', hasIcon), 'folder');
+});
+
+test('recents show their age, matches and configured subfolder', () => {
+  const { formatRelativeTime, splitMatch, findRecentSubfolderIndex, formatRecentLabel } = require('../src/shared/launcher-shared');
+  const now = Date.UTC(2026, 9, 8, 12);
+  assert.equal(formatRelativeTime(now - 2 * 3600 * 1000, now), 'il y a 2 h');
+  assert.equal(formatRelativeTime(now - 30 * 1000, now), 'à l’instant');
+  assert.deepEqual(splitMatch('2026-4889', '48'), [
+    { text: '2026-', match: false },
+    { text: '48', match: true },
+    { text: '89', match: false }
+  ]);
+  const recent = { projectNumber: '2026-4889', subfolderName: 'Plans', subfolderPath: 'Plans/Plan d’exécution' };
+  assert.equal(findRecentSubfolderIndex(recent, [{ chemin: '' }, { chemin: 'plans\\Plan d’exécution' }]), 1);
+  assert.equal(formatRecentLabel(recent), '2026-4889 · Plans');
+});

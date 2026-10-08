@@ -5,41 +5,36 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+    content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'">
   <title>Project Folder Launcher</title>
+  <link rel="stylesheet" href="src/ui/industry.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-  <main class="container" role="dialog" aria-label="Recherche de projet">
-    <div class="search-box">
-      <div class="search-input-wrapper">
-        <span class="search-icon" aria-hidden="true">🔍</span>
-        <input type="text" id="projectInput" aria-label="Numéro de projet" placeholder="Numéro de projet (ex: 4889)"
-          autocomplete="off" spellcheck="false" maxlength="9">
-        <span class="shortcut-hint" aria-label="Raccourci global">Ctrl+Shift+P</span>
-      </div>
-    </div>
+  <main class="popup window blueprint" role="dialog" aria-label="Recherche de projet">
+    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 
-    <div class="validation-message" id="validationMessage" role="status" aria-live="polite"></div>
-
-    <section class="recent-menu" id="recentMenu" aria-label="Dossiers ouverts récemment">
-      <div class="menu-header">Récents</div>
-      <div class="recent-items" id="recentItems" role="listbox" aria-label="Choisir un dossier récent"></div>
-      <div class="recent-empty" id="recentEmpty">Aucun dossier récent</div>
+    <section class="pane-list" aria-label="Recherche et dossiers récents">
+      <label class="search-field" id="searchField">
+        <ui-icon name="search" size="16" class="search-icon"></ui-icon>
+        <span class="search-input-wrap">
+          <input type="text" id="projectInput" aria-label="Numéro de projet" placeholder="N° de projet (ex : 4889)"
+            autocomplete="off" spellcheck="false" maxlength="9">
+          <span class="search-mirror" id="searchMirror" aria-hidden="true"></span>
+          <span class="search-ghost" id="searchGhost" aria-hidden="true"></span>
+        </span>
+        <span class="key-chip" id="shortcutChip" aria-label="Raccourci global"></span>
+      </label>
+      <div class="kicker"><span>Récents</span><span id="recentCount"></span></div>
+      <div class="list recent-list" id="recentList" role="listbox" aria-label="Dossiers ouverts récemment"></div>
     </section>
 
-    <section class="subfolders-menu" id="subfoldersMenu" aria-label="Sous-dossiers disponibles">
-      <div class="menu-header">Ouvrir dans :</div>
-      <div class="menu-items" id="menuItems" role="listbox" aria-label="Choisir un sous-dossier"></div>
-    </section>
-
-    <div class="footer">
-      <span class="hint">Entrée = ouvrir • Échap = fermer</span>
-    </div>
+    <section class="pane-detail" id="detail" aria-live="polite"></section>
   </main>
 
   <script src="src/shared/launcher-shared.js"></script>
+  <script src="src/shared/icons.js"></script>
   <script src="renderer.js"></script>
 </body>
 

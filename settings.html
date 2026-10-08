@@ -5,93 +5,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'">
     <title>Paramètres</title>
+    <link rel="stylesheet" href="src/ui/industry.css">
     <link rel="stylesheet" href="settings.css">
 </head>
 
 <body>
-    <main class="settings-container" role="dialog" aria-label="Paramètres Project Folder Launcher">
-        <div class="title-bar">
-            <h1>⚙ Paramètres</h1>
-            <button class="title-bar-btn" id="closeBtn" type="button" title="Fermer" aria-label="Fermer">✕</button>
-        </div>
+    <main class="settings window blueprint" role="dialog" aria-label="Paramètres Project Folder Launcher">
+        <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
 
-        <div class="settings-content">
-            <section class="settings-section" aria-labelledby="rootTitle">
-                <h2 id="rootTitle">Dossier racine</h2>
-                <div class="path-picker">
-                    <input type="text" class="input-field" id="racineInput" readonly
-                        placeholder="Cliquez Parcourir pour choisir..." aria-label="Dossier racine">
-                    <button class="btn btn-secondary" id="browseRacine" type="button">Parcourir...</button>
-                </div>
-            </section>
+        <header class="title-bar settings-header">
+            <h1><ui-icon name="settings" size="16"></ui-icon>Paramètres</h1>
+            <button class="icon-btn" id="closeBtn" type="button" title="Fermer" aria-label="Fermer">
+                <ui-icon name="x" size="16"></ui-icon>
+            </button>
+        </header>
 
-            <section class="settings-section" aria-labelledby="subfolderTitle">
-                <h2 id="subfolderTitle">Sous-dossiers</h2>
-                <div class="subfolder-list" id="subfolderList" aria-label="Liste des sous-dossiers"></div>
-                <button class="btn btn-secondary" id="addSubfolder" type="button">+ Ajouter un sous-dossier</button>
-            </section>
+        <nav class="settings-nav" aria-label="Sections">
+            <div class="kicker"><span>Sections</span></div>
+            <div class="list" id="sectionList" role="tablist" aria-orientation="vertical"></div>
+            <span class="settings-version text-muted" id="appVersion"></span>
+        </nav>
 
-            <section class="settings-section" aria-labelledby="shortcutTitle">
-                <h2 id="shortcutTitle">Raccourci global</h2>
-                <div class="shortcut-capture">
-                    <input type="text" class="input-field" id="shortcutInput" readonly
-                        placeholder="Cliquez puis appuyez sur les touches..." aria-label="Raccourci global">
-                    <span class="shortcut-display" id="shortcutCurrent"></span>
-                </div>
-            </section>
+        <section class="settings-content" id="sectionContent" role="tabpanel"></section>
 
-            <section class="settings-section" aria-labelledby="openBehaviorTitle">
-                <h2 id="openBehaviorTitle">Comportement d'ouverture</h2>
-                <div class="radio-group" role="radiogroup" aria-label="Comportement d'ouverture">
-                    <label class="radio-label">
-                        <input type="radio" name="openBehavior" value="newWindow" id="openNewWindow">
-                        <span class="radio-copy">
-                            <span class="radio-title" id="newWindowTitle">Nouvelle fenêtre Explorer</span>
-                            <span class="radio-help">Comportement historique avec une nouvelle fenêtre.</span>
-                        </span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="openBehavior" value="newTab" id="openNewTab">
-                        <span class="radio-copy">
-                            <span class="radio-title" id="newTabTitle">Nouvel onglet dans la fenêtre active</span>
-                            <span class="radio-help" id="newTabHelp">Ouvre un nouvel onglet Explorer ou Finder si possible.</span>
-                        </span>
-                    </label>
-                    <label class="radio-label">
-                        <input type="radio" name="openBehavior" value="reuseWindow" id="openReuseWindow">
-                        <span class="radio-copy">
-                            <span class="radio-title" id="reuseWindowTitle">Réutiliser la fenêtre active</span>
-                            <span class="radio-help" id="reuseWindowHelp">Remplace le dossier courant dans la fenêtre existante.</span>
-                        </span>
-                    </label>
-                </div>
-            </section>
-
-            <section class="settings-section" aria-labelledby="optionsTitle">
-                <h2 id="optionsTitle">Options</h2>
-                <div class="checkbox-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="miniBarCheck">
-                        <span>Afficher la mini-barre</span>
-                    </label>
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="autoStartCheck">
-                        <span id="autoStartLabel">Démarrer avec Windows</span>
-                    </label>
-                </div>
-            </section>
-        </div>
-
-        <div class="settings-actions">
-            <div class="settings-status" id="settingsStatus" role="status" aria-live="polite"></div>
+        <footer class="dialog-footer settings-footer">
+            <span class="settings-status" id="settingsStatus" role="status" aria-live="polite"></span>
             <button class="btn btn-secondary" id="cancelBtn" type="button">Annuler</button>
-            <button class="btn btn-primary" id="saveBtn" type="button">Enregistrer</button>
-        </div>
+            <button class="btn btn-primary blueprint" id="saveBtn" type="button">
+                <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                Enregistrer
+            </button>
+        </footer>
     </main>
 
     <script src="src/shared/launcher-shared.js"></script>
+    <script src="src/shared/icons.js"></script>
     <script src="settings-renderer.js"></script>
 </body>
 

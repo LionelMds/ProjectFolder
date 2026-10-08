@@ -4,8 +4,12 @@ const { validateSettingsInput } = require('./config-store');
 const { FOUR_DIGITS, FULL_PROJECT_NUMBER } = require('./project-service');
 const {
   MAX_GLOBAL_SHORTCUT_LENGTH,
+  MINI_BAR_HEIGHT,
   MINI_BASE_WIDTH,
-  MINI_MAX_WIDTH
+  MINI_FRAME_MARGIN,
+  MINI_MAX_PANEL_HEIGHT,
+  MINI_MAX_WIDTH,
+  VALID_OPEN_BEHAVIORS
 } = require('./constants');
 const { clamp } = require('./window-bounds');
 
@@ -36,13 +40,54 @@ function validateRecentId(value) {
   return recentId;
 }
 
-function validateMiniWidth(value) {
-  const width = Number(value);
-  if (!Number.isFinite(width)) {
-    throw new Error('Largeur de mini-barre invalide.');
+function finiteNumber(value, label) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) {
+    throw new Error(`${label} invalide.`);
   }
+  return Math.round(number);
+}
 
-  return clamp(Math.round(width), MINI_BASE_WIDTH, MINI_MAX_WIDTH);
+// Size of the mini bar content, measured by its renderer (window margins
+// excluded). A panel of 0 × 0 means the drop-down pane is closed.
+function validateMiniLayout(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const maxContentWidth = MINI_MAX_WIDTH - (MINI_FRAME_MARGIN * 2);
+  const minContentWidth = MINI_BASE_WIDTH - (MINI_FRAME_MARGIN * 2);
+  const panelWidth = clamp(finiteNumber(source.panelWidth ?? 0, 'Largeur du volet'), 0, maxContentWidth);
+  const panelHeight = clamp(finiteNumber(source.panelHeight ?? 0, 'Hauteur du volet'), 0, MINI_MAX_PANEL_HEIGHT);
+
+  return {
+    barWidth: clamp(finiteNumber(source.barWidth, 'Largeur de mini-barre'), minContentWidth, maxContentWidth),
+    // Taller than the bar only for the macOS menu bar popover.
+    barHeight: clamp(
+      finiteNumber(source.barHeight ?? MINI_BAR_HEIGHT, 'Hauteur de mini-barre'),
+      MINI_BAR_HEIGHT,
+      MINI_BAR_HEIGHT + MINI_MAX_PANEL_HEIGHT
+    ),
+    collapsedWidth: clamp(finiteNumber(source.collapsedWidth ?? source.barWidth, 'Largeur de mini-barre'), minContentWidth, maxContentWidth),
+    panelWidth: panelWidth > 0 && panelHeight > 0 ? panelWidth : 0,
+    panelHeight: panelWidth > 0 && panelHeight > 0 ? panelHeight : 0
+  };
+}
+
+// The open mode chosen in the popup for one opening; null keeps the default.
+function validateOpenBehavior(value) {
+  if (value === undefined || value === null || value === '') {
+    return null;
+  }
+  if (!VALID_OPEN_BEHAVIORS.includes(value)) {
+    throw new Error("Mode d'ouverture invalide.");
+  }
+  return value;
+}
+
+function validateRootCandidate(value) {
+  const root = String(value || '').trim();
+  if (!root || root.length > 1000 || /[\r\n\0]/.test(root)) {
+    throw new Error('Dossier racine invalide.');
+  }
+  return root;
 }
 
 function validateGlobalShortcut(value) {
@@ -60,8 +105,10 @@ function validateGlobalShortcut(value) {
 
 module.exports = {
   validateGlobalShortcut,
-  validateMiniWidth,
+  validateMiniLayout,
+  validateOpenBehavior,
   validateProjectInput,
+  validateRootCandidate,
   validateRecentId,
   validateSettingsInput,
   validateSubfolderIndex

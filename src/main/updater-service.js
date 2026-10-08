@@ -25,6 +25,9 @@ class UpdaterService {
       transferred: 0,
       total: 0,
       releaseNotes: '',
+      releaseNoteItems: [],
+      downloadSizeLabel: null,
+      checkedAt: null,
       error: null,
       manual: false
     };
@@ -60,12 +63,16 @@ class UpdaterService {
 
     this.on('update-available', info => {
       this.pendingUpdateInfo = info;
+      const releaseNotes = normalizeReleaseNotes(info.releaseNotes);
+      const downloadSize = totalDownloadSize(info);
       this.setState({
         status: 'available',
         message: `Version ${info.version} disponible`,
         availableVersion: info.version,
         releaseDate: info.releaseDate || null,
-        releaseNotes: normalizeReleaseNotes(info.releaseNotes),
+        releaseNotes,
+        releaseNoteItems: extractReleaseNoteItems(releaseNotes),
+        downloadSizeLabel: downloadSize ? formatBytes(downloadSize) : null,
         error: null,
         percent: 0
       });
@@ -81,6 +88,7 @@ class UpdaterService {
         status: 'not-available',
         message: 'Le logiciel est à jour.',
         availableVersion: null,
+        checkedAt: Date.now(),
         percent: 0,
         error: null
       });
@@ -359,15 +367,69 @@ class UpdaterService {
   }
 }
 
+// French units and decimal comma: "29,7 Mo".
 function formatBytes(bytes) {
   if (!Number.isFinite(bytes) || bytes <= 0) {
-    return '0 B';
+    return '0 o';
   }
 
-  const units = ['B', 'KB', 'MB', 'GB'];
+  const units = ['o', 'Ko', 'Mo', 'Go'];
   const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / (1024 ** exponent);
-  return `${value.toFixed(value >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
+  return `${value.toFixed(exponent >= 2 ? 1 : 0).replace('.', ',')} ${units[exponent]}`;
+}
+
+const HTML_ENTITIES = Object.freeze({
+  '&nbsp;': ' ', '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&#x27;': "'"
+});
+
+// GitHub release notes arrive as HTML: keep one line per paragraph, heading
+// ("## …") and list item ("- …") so they can be listed.
+function htmlToText(html) {
+  return String(html)
+    .replace(/<\s*br\s*\/?>/gi, '\n')
+    .replace(/<\s*h[1-6][^>]*>/gi, '\n## ')
+    .replace(/<\s*li[^>]*>/gi, '\n- ')
+    .replace(/<\/\s*(p|div|h[1-6]|li|ul|ol)\s*>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&(nbsp|amp|lt|gt|quot|#39|#x27);/g, entity => HTML_ENTITIES[entity])
+    .split('\n')
+    .map(line => line.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+// "Nouveautés" list of the update window: list items, outside the
+// "Installation" section that only describes the downloaded files.
+function extractReleaseNoteItems(notesText, limit = 12) {
+  const items = [];
+  const paragraphs = [];
+  let skippedSection = false;
+
+  for (const line of String(notesText || '').split('\n')) {
+    const heading = /^#{1,6}\s*(.*)$/.exec(line);
+    if (heading) {
+      skippedSection = /installation/i.test(heading[1]);
+      continue;
+    }
+    if (skippedSection) {
+      continue;
+    }
+
+    const item = /^[-*•]\s+(.*)$/.exec(line);
+    const text = (item ? item[1] : line).replace(/`|\*\*/g, '').trim();
+    if (text) {
+      (item ? items : paragraphs).push(text);
+    }
+  }
+
+  return (items.length > 0 ? items : paragraphs).slice(0, limit);
+}
+
+function totalDownloadSize(info) {
+  const files = Array.isArray(info && info.files) ? info.files : [];
+  const total = files.reduce((sum, file) => sum + (Number(file && file.size) || 0), 0);
+  return total > 0 ? total : null;
 }
 
 function normalizeReleaseNotes(releaseNotes) {
@@ -376,7 +438,7 @@ function normalizeReleaseNotes(releaseNotes) {
   }
 
   if (typeof releaseNotes === 'string') {
-    return releaseNotes.replace(/<[^>]+>/g, '').trim();
+    return htmlToText(releaseNotes);
   }
 
   if (Array.isArray(releaseNotes)) {
@@ -399,6 +461,7 @@ function normalizeReleaseNotes(releaseNotes) {
 
 module.exports = {
   UpdaterService,
+  extractReleaseNoteItems,
   formatBytes,
   normalizeReleaseNotes
 };

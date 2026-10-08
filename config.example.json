@@ -1,30 +1,30 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "racine": "",
   "sousDossiers": [
     {
       "nom": "Dossier principal",
       "chemin": "",
       "raccourci": "Enter",
-      "icone": "📁"
+      "icone": "folder"
     },
     {
       "nom": "Plans d'exécution",
       "chemin": "Plans\\Plan d'exécution",
       "raccourci": "Ctrl+Enter",
-      "icone": "📐"
+      "icone": "ruler"
     },
     {
       "nom": "Fournisseurs",
       "chemin": "Fournisseurs",
       "raccourci": "Shift+Enter",
-      "icone": "🏭"
+      "icone": "factory"
     },
     {
       "nom": "Devis",
       "chemin": "Devis",
       "raccourci": null,
-      "icone": "💰"
+      "icone": "file-text"
     }
   ],
   "raccourciGlobal": "CommandOrControl+Shift+P",

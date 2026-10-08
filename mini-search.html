@@ -5,23 +5,60 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+        content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'">
     <title>Mini Search</title>
+    <link rel="stylesheet" href="src/ui/industry.css">
     <link rel="stylesheet" href="mini-search.css">
 </head>
 
 <body>
-    <main class="mini-container" id="miniContainer" role="search" aria-label="Recherche rapide de projet">
-        <div class="drag-handle" id="dragHandle" aria-hidden="true">⋮⋮</div>
-        <button class="pin-btn" id="pinBtn" type="button" aria-label="Épingler la mini-barre" title="Épingler">📌</button>
-        <span class="mini-icon" aria-hidden="true">🔍</span>
-        <input type="text" id="miniInput" aria-label="Numéro de projet" placeholder="4889" autocomplete="off"
-            spellcheck="false" maxlength="9">
-        <div class="mini-status" id="miniStatus" role="status" aria-live="polite"></div>
-        <div class="mini-buttons" id="miniButtons" aria-label="Ouvrir dans un sous-dossier"></div>
-    </main>
+    <div class="mini-stack" id="miniStack">
+        <div class="mini-bar window blueprint" id="miniBar" role="search" aria-label="Recherche rapide de projet">
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <span class="mini-cell mini-grip" id="dragHandle" aria-hidden="true">
+                <ui-icon name="grip-vertical" size="14"></ui-icon>
+            </span>
+            <label class="mini-cell mini-search" id="miniSearch">
+                <ui-icon name="search" size="15" class="search-icon"></ui-icon>
+                <input type="text" id="miniInput" aria-label="Numéro de projet" placeholder="4889" autocomplete="off"
+                    spellcheck="false" maxlength="4">
+                <span class="mini-status" id="miniStatus" role="status" aria-live="polite"></span>
+                <span class="key-chip" id="miniChip" hidden></span>
+            </label>
+            <span class="mini-cell mini-seg-cell" id="miniSegCell" hidden>
+                <span class="seg mini-seg" id="miniButtons" role="group" aria-label="Ouvrir dans un sous-dossier"></span>
+            </span>
+            <button class="mini-cell mini-pin" id="pinBtn" type="button">
+                <ui-icon name="pin" size="15"></ui-icon>
+            </button>
+        </div>
+
+        <div class="mini-panel window blueprint" id="miniPanel" hidden>
+            <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+            <div class="mini-panel-list" id="miniPanelList">
+                <div class="kicker"><span>Récents</span><span id="miniRecentCount"></span></div>
+                <div class="list" id="miniRecentList" role="listbox" aria-label="Dossiers récents"></div>
+            </div>
+            <div class="mini-panel-detail" id="miniDetail"></div>
+            <div class="popover-actions" id="popoverActions" hidden>
+                <button type="button" class="popover-action" data-action="mini-bar">
+                    <ui-icon name="panel-bottom" size="14"></ui-icon>Mini-barre
+                </button>
+                <button type="button" class="popover-action" data-action="settings">
+                    <ui-icon name="settings" size="14"></ui-icon>Réglages
+                </button>
+                <button type="button" class="popover-action" data-action="update">
+                    <ui-icon name="refresh-cw" size="14"></ui-icon>Mise à jour
+                </button>
+                <button type="button" class="popover-action popover-quit" data-action="quit" aria-label="Quitter">
+                    <ui-icon name="power" size="14"></ui-icon>
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script src="src/shared/launcher-shared.js"></script>
+    <script src="src/shared/icons.js"></script>
     <script src="mini-renderer.js"></script>
 </body>
 

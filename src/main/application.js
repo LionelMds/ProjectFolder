@@ -7,9 +7,11 @@ const { FolderOpener } = require('./folder-openers');
 const { IpcRouter } = require('./ipc-router');
 const {
   validateGlobalShortcut,
-  validateMiniWidth,
+  validateMiniLayout,
+  validateOpenBehavior,
   validateProjectInput,
   validateRecentId,
+  validateRootCandidate,
   validateSubfolderIndex
 } = require('./ipc-validation');
 const { RotatingLogger } = require('./logger');
@@ -96,6 +98,11 @@ class ApplicationController {
         });
       },
       getUpdateState: () => this.updaterService.state,
+      openRecentFolder: recentId => {
+        this.openRecentFolder(recentId).catch(error => {
+          this.notifyError('Ouverture impossible', error);
+        });
+      },
       prepareFolderOpening: () => this.folderOpener.prepare(),
       quit: () => {
         app.isQuitting = true;
@@ -262,7 +269,9 @@ class ApplicationController {
         ? {
           success: true,
           found: true,
-          projectNumber: project.projectNumber
+          projectNumber: project.projectNumber,
+          year: project.year,
+          projectPath: project.projectPath
         }
         : {
           success: true,
@@ -270,16 +279,29 @@ class ApplicationController {
         };
     });
 
+    this.ipcRouter.handle('get-project-years', [MAIN, MINI], async () => ({
+      success: true,
+      years: await this.projectService.listYears()
+    }));
+
+    this.ipcRouter.handle('find-nearest-projects', [MAIN, MINI], async (event, rawInput) => {
+      const digits = validateProjectInput(rawInput);
+      return {
+        success: true,
+        projects: await this.projectService.findNearestProjects(digits.slice(-4))
+      };
+    });
+
     this.ipcRouter.handle(
       'open-project-folder',
       [MAIN, MINI],
-      async (event, rawInput, rawSubfolderIndex) => (
-        this.openProjectFolder(rawInput, rawSubfolderIndex)
+      async (event, rawInput, rawSubfolderIndex, rawBehavior) => (
+        this.openProjectFolder(rawInput, rawSubfolderIndex, rawBehavior)
       )
     );
 
-    this.ipcRouter.handle('open-recent-folder', [MAIN], async (event, rawRecentId) => (
-      this.openRecentFolder(rawRecentId)
+    this.ipcRouter.handle('open-recent-folder', [MAIN, MINI], async (event, rawRecentId, rawBehavior) => (
+      this.openRecentFolder(rawRecentId, rawBehavior)
     ));
 
     this.ipcRouter.handle('hide-window', [MAIN], async () => {
@@ -294,9 +316,29 @@ class ApplicationController {
     this.ipcRouter.handle('toggle-mini-pin', [MINI], async () => (
       this.windowManager.toggleMiniPin()
     ));
-    this.ipcRouter.handle('resize-mini-bar', [MINI], async (event, rawWidth) => (
-      this.windowManager.resizeMiniWindow(validateMiniWidth(rawWidth))
+    this.ipcRouter.handle('set-mini-layout', [MINI], async (event, rawLayout) => (
+      this.windowManager.setMiniLayout(validateMiniLayout(rawLayout))
     ));
+
+    // Footer actions of the macOS menu bar popover (design 2i).
+    this.ipcRouter.handle('open-settings', [MINI], async () => {
+      this.windowManager.hideMacPopoverAfterOpen();
+      this.windowManager.createSettingsWindow();
+      return { success: true };
+    });
+    this.ipcRouter.handle('toggle-mini-visibility', [MINI], async () => {
+      this.windowManager.toggleMiniVisibility();
+      return { success: true };
+    });
+    this.ipcRouter.handle('quit-app', [MINI], async () => {
+      this.electron.app.isQuitting = true;
+      this.electron.app.quit();
+      return { success: true };
+    });
+    this.ipcRouter.handle('open-update-center', [MINI, SETTINGS], async () => {
+      this.windowManager.hideMacPopoverAfterOpen();
+      return this.updaterService.openUpdateCenter();
+    });
 
     this.ipcRouter.handle('select-folder', [SETTINGS], async () => {
       const result = await this.electron.dialog.showOpenDialog({
@@ -307,6 +349,11 @@ class ApplicationController {
         ? result.filePaths[0]
         : null;
     });
+
+    this.ipcRouter.handle('inspect-root', [SETTINGS], async (event, rawRoot) => ({
+      success: true,
+      ...(await this.projectService.inspectRoot(validateRootCandidate(rawRoot)))
+    }));
 
     this.ipcRouter.handle('save-settings', [SETTINGS], async (event, newConfig) => (
       this.saveSettings(newConfig)
@@ -330,9 +377,10 @@ class ApplicationController {
     ));
   }
 
-  async openProjectFolder(rawInput, rawSubfolderIndex) {
+  async openProjectFolder(rawInput, rawSubfolderIndex, rawBehavior) {
     const projectInput = validateProjectInput(rawInput);
     const config = this.configStore.config;
+    const behavior = validateOpenBehavior(rawBehavior) || config.openBehavior;
     const subfolderIndex = validateSubfolderIndex(
       rawSubfolderIndex,
       config.sousDossiers.length
@@ -353,7 +401,7 @@ class ApplicationController {
       project.projectNumber,
       subfolder.chemin
     );
-    const result = await this.folderOpener.open(folderPath, config.openBehavior);
+    const result = await this.folderOpener.open(folderPath, behavior);
     if (!result.success) {
       // The project may have been moved or renamed since it was resolved.
       this.projectService.forgetProject(projectInput);
@@ -373,8 +421,9 @@ class ApplicationController {
     return result;
   }
 
-  async openRecentFolder(rawRecentId) {
+  async openRecentFolder(rawRecentId, rawBehavior) {
     const recentId = validateRecentId(rawRecentId);
+    const behavior = validateOpenBehavior(rawBehavior) || this.configStore.config.openBehavior;
     const recent = this.configStore.config.recentFolders.find(
       item => item && item.id === recentId
     );
@@ -382,10 +431,7 @@ class ApplicationController {
       return { success: false, error: 'Dossier récent introuvable.' };
     }
 
-    const result = await this.folderOpener.open(
-      recent.folderPath,
-      this.configStore.config.openBehavior
-    );
+    const result = await this.folderOpener.open(recent.folderPath, behavior);
     if (!result.success) {
       this.notifyError('Ouverture impossible', result.error);
       return result;
@@ -405,6 +451,7 @@ class ApplicationController {
         { platform: this.platform }
       );
     });
+    this.windowManager.updateTrayMenu();
     this.windowManager.broadcastConfigUpdated();
   }
 

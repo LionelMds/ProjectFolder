@@ -5,14 +5,18 @@ const test = require('node:test');
 const {
   calculateMiniBounds,
   detectReservedScreenEdge,
-  expandMiniBounds,
-  fitWindowToWorkArea
+  fitWindowToWorkArea,
+  layoutMiniBounds
 } = require('../src/main/window-bounds');
 
 const primaryDisplay = {
   bounds: { x: 0, y: 0, width: 1920, height: 1080 },
   workArea: { x: 0, y: 0, width: 1920, height: 1040 }
 };
+
+// The mini window is the 40 px bar plus an 8 px transparent margin.
+const WINDOW_HEIGHT = 56;
+const MARGIN = 8;
 
 test('the reserved Windows edge is detected from work area metrics', () => {
   assert.deepEqual(
@@ -31,8 +35,35 @@ test('floating positions are clamped onto the nearest display', () => {
     platform: 'win32'
   });
 
-  assert.equal(bounds.x, 1652);
-  assert.equal(bounds.y, 988);
+  // Only the transparent margin may leave the display.
+  assert.equal(bounds.x, 1920 - 260 + MARGIN);
+  assert.equal(bounds.y, 1080 - WINDOW_HEIGHT + MARGIN);
+});
+
+test('a floating bar saved on the taskbar is restored on the taskbar', () => {
+  const bounds = calculateMiniBounds({
+    requestedWidth: 260,
+    integrationMode: 'floating',
+    miniBar: { position: { x: 800, y: 1030 } },
+    primaryDisplay,
+    displayNearestPoint: () => primaryDisplay,
+    platform: 'win32'
+  });
+
+  assert.deepEqual(bounds, { x: 800, y: 1030, width: 260, height: WINDOW_HEIGHT });
+});
+
+test('without a saved position the floating bar starts above the taskbar', () => {
+  const bounds = calculateMiniBounds({
+    requestedWidth: 260,
+    integrationMode: 'floating',
+    miniBar: { position: null },
+    primaryDisplay,
+    displayNearestPoint: () => primaryDisplay,
+    platform: 'win32'
+  });
+
+  assert.ok(bounds.y + bounds.height <= primaryDisplay.workArea.height);
 });
 
 test('custom docked positions are preserved on a secondary display', () => {
@@ -52,32 +83,47 @@ test('custom docked positions are preserved on a secondary display', () => {
     platform: 'win32'
   });
 
-  assert.deepEqual(bounds, { x: 3000, y: 1200, width: 300, height: 44 });
+  assert.deepEqual(bounds, { x: 3000, y: 1200, width: 300, height: WINDOW_HEIGHT });
 });
 
-test('a docked mini bar near the right edge grows leftwards and collapses back', () => {
-  const base = { x: 1920 - 260 - 8, y: 1080 - 44 - 0 };
-  const expanded = expandMiniBounds(base, 388, primaryDisplay.bounds, { padding: 0 });
+test('on the taskbar near the right edge the panel opens upwards and leftwards', () => {
+  const base = { x: 1920 - 176, y: 1080 - WINDOW_HEIGHT };
+  const size = { width: 496, height: WINDOW_HEIGHT + 6 + 200, collapsedWidth: 176, collapsedHeight: WINDOW_HEIGHT };
+  const opened = layoutMiniBounds(base, size, primaryDisplay.bounds);
 
-  assert.deepEqual(expanded, { x: 1920 - 388 - 8, y: base.y, width: 388, height: 44 });
-  assert.ok(expanded.x + expanded.width <= 1920);
-  assert.deepEqual(
-    expandMiniBounds(base, 260, primaryDisplay.bounds, { padding: 0 }),
-    { x: base.x, y: base.y, width: 260, height: 44 }
+  assert.deepEqual(opened.bounds, { x: 1920 - 496, y: base.y - 206, width: 496, height: 262 });
+  assert.equal(opened.direction, 'up');
+  assert.equal(opened.align, 'right');
+  // The bar keeps its place: same bottom-right corner as the collapsed window.
+  assert.equal(opened.bounds.x + opened.bounds.width, base.x + 176);
+  assert.equal(opened.bounds.y + opened.bounds.height, base.y + WINDOW_HEIGHT);
+
+  const collapsed = layoutMiniBounds(base, { width: 176, height: WINDOW_HEIGHT }, primaryDisplay.bounds);
+  assert.deepEqual(collapsed.bounds, { ...base, width: 176, height: WINDOW_HEIGHT });
+  assert.equal(collapsed.direction, 'down');
+});
+
+test('with room around it the panel opens below and to the right', () => {
+  const opened = layoutMiniBounds(
+    { x: 830, y: 300 },
+    { width: 496, height: 262, collapsedWidth: 176, collapsedHeight: WINDOW_HEIGHT },
+    primaryDisplay.bounds
   );
+
+  assert.deepEqual(opened.bounds, { x: 830, y: 300, width: 496, height: 262 });
+  assert.equal(opened.direction, 'down');
+  assert.equal(opened.align, 'left');
 });
 
-test('a floating mini bar with room on its right keeps its left edge', () => {
-  const expanded = expandMiniBounds({ x: 830, y: 990 }, 388, primaryDisplay.workArea);
+test('the bar itself never leaves the display', () => {
+  const { bounds } = layoutMiniBounds(
+    { x: -40, y: 500 },
+    { width: 656, height: WINDOW_HEIGHT },
+    primaryDisplay.workArea
+  );
 
-  assert.deepEqual(expanded, { x: 830, y: 988, width: 388, height: 44 });
-});
-
-test('an expanded mini bar never leaves the display', () => {
-  const expanded = expandMiniBounds({ x: -40, y: 500 }, 520, primaryDisplay.workArea);
-
-  assert.equal(expanded.x, 8);
-  assert.equal(expanded.width, 520);
+  assert.equal(bounds.x, -MARGIN);
+  assert.equal(bounds.width, 656);
 });
 
 test('large dialogs fit inside small work areas', () => {

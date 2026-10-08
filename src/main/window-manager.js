@@ -7,18 +7,21 @@ const {
   MAIN_WINDOW_SIZE,
   MINI_BASE_WIDTH,
   MINI_DEFAULT_HEIGHT,
-  MINI_EDGE_PADDING,
+  MINI_FRAME_MARGIN,
+  MINI_PANEL_GAP,
   SETTINGS_WINDOW_SIZE,
   UPDATE_WINDOW_SIZE,
   VALID_INTEGRATION_MODES
 } = require('./constants');
 const { isMac, isWindows } = require('./platform');
-const { formatAccelerator } = require('../shared/launcher-shared');
+const { formatAccelerator, formatRecentLabel } = require('../shared/launcher-shared');
 const {
   calculateMiniBounds,
-  expandMiniBounds,
-  fitWindowToWorkArea
+  fitWindowToWorkArea,
+  layoutMiniBounds
 } = require('./window-bounds');
+
+const TRAY_RECENT_COUNT = 3;
 const {
   WINDOW_ROLES,
   createSecureWebPreferences,
@@ -49,6 +52,9 @@ class WindowManager {
     this.miniZOrderTimer = null;
     // Position of the collapsed mini bar; expanded bounds derive from it.
     this.miniBasePosition = null;
+    // Window top-left relative to the base while widened or opened upwards.
+    this.miniOffset = { x: 0, y: 0 };
+    this.lastMiniLayout = null;
     this.lastMiniBounds = null;
     this.destroyingMini = false;
     this.currentUpdateState = null;
@@ -68,10 +74,22 @@ class WindowManager {
   getConfigView() {
     return {
       ...this.config,
+      appVersion: this.app.getVersion(),
       dockedMoveMode: this.config.integrationMode === 'docked'
         && !isMac(this.platform)
         && this.dockedMoveMode
     };
+  }
+
+  // The popup sits a little above the centre of the display.
+  getMainWindowBounds(display) {
+    const bounds = fitWindowToWorkArea(MAIN_WINDOW_SIZE, display.workArea, {
+      margin: 0,
+      minWidth: 640,
+      minHeight: 340
+    });
+    bounds.y = Math.max(display.workArea.y, Math.round(bounds.y - 100));
+    return bounds;
   }
 
   getAppIconPath() {
@@ -94,15 +112,7 @@ class WindowManager {
     }
 
     const display = this.screen.getPrimaryDisplay();
-    const bounds = fitWindowToWorkArea(MAIN_WINDOW_SIZE, display.workArea, {
-      margin: 8,
-      minWidth: 360,
-      minHeight: 320
-    });
-    bounds.y = Math.max(
-      display.workArea.y + 8,
-      Math.round(bounds.y - 100)
-    );
+    const bounds = this.getMainWindowBounds(display);
 
     const htmlPath = path.join(this.appRoot, 'index.html');
     const win = new this.BrowserWindow({
@@ -113,11 +123,7 @@ class WindowManager {
       skipTaskbar: true,
       alwaysOnTop: true,
       show: false,
-      ...(isMac(this.platform) && {
-        vibrancy: 'under-window',
-        visualEffectState: 'active',
-        backgroundColor: '#00000000'
-      }),
+      backgroundColor: '#00000000',
       webPreferences: createSecureWebPreferences(this.preloadPath)
     });
 
@@ -158,11 +164,7 @@ class WindowManager {
       show: !macPopover,
       focusable: true,
       movable: canMove,
-      ...(isMac(this.platform) && {
-        vibrancy: macPopover ? 'menu' : 'under-window',
-        visualEffectState: 'active',
-        backgroundColor: '#00000000'
-      }),
+      backgroundColor: '#00000000',
       webPreferences: createSecureWebPreferences(this.preloadPath)
     });
 
@@ -192,7 +194,10 @@ class WindowManager {
         return;
       }
 
-      const { x, y } = bounds;
+      // The window may be widened leftwards or opened upwards around the
+      // bar: the base is where the collapsed bar now stands.
+      const x = bounds.x + this.miniOffset.x;
+      const y = bounds.y + this.miniOffset.y;
       this.miniBasePosition = { x, y };
       this.lastMiniBounds = bounds;
       if (mode === 'floating') {
@@ -219,6 +224,8 @@ class WindowManager {
 
     this.miniWindow = win;
     this.miniBasePosition = { x: bounds.x, y: bounds.y };
+    this.miniOffset = { x: 0, y: 0 };
+    this.lastMiniLayout = null;
     this.lastMiniBounds = bounds;
     this.startMiniZOrderKeeper();
     this.logger.info('Mini window created', { mode });
@@ -234,9 +241,9 @@ class WindowManager {
 
     const display = this.screen.getPrimaryDisplay();
     const bounds = fitWindowToWorkArea(SETTINGS_WINDOW_SIZE, display.workArea, {
-      margin: 12,
-      minWidth: 560,
-      minHeight: 520
+      margin: 0,
+      minWidth: 680,
+      minHeight: 480
     });
     const htmlPath = path.join(this.appRoot, 'settings.html');
     const win = new this.BrowserWindow({
@@ -244,16 +251,12 @@ class WindowManager {
       frame: false,
       transparent: true,
       resizable: true,
-      minWidth: Math.min(560, bounds.width),
-      minHeight: Math.min(520, bounds.height),
+      minWidth: Math.min(680, bounds.width),
+      minHeight: Math.min(480, bounds.height),
       skipTaskbar: false,
       alwaysOnTop: true,
       icon: this.getAppIconPath(),
-      ...(isMac(this.platform) && {
-        vibrancy: 'under-window',
-        visualEffectState: 'active',
-        backgroundColor: '#00000000'
-      }),
+      backgroundColor: '#00000000',
       webPreferences: createSecureWebPreferences(this.preloadPath)
     });
 
@@ -275,9 +278,9 @@ class WindowManager {
 
     const display = this.screen.getPrimaryDisplay();
     const bounds = fitWindowToWorkArea(UPDATE_WINDOW_SIZE, display.workArea, {
-      margin: 12,
-      minWidth: 480,
-      minHeight: 440
+      margin: 0,
+      minWidth: 560,
+      minHeight: 320
     });
     const htmlPath = path.join(this.appRoot, 'update.html');
     const win = new this.BrowserWindow({
@@ -285,17 +288,13 @@ class WindowManager {
       frame: false,
       transparent: true,
       resizable: true,
-      minWidth: Math.min(480, bounds.width),
-      minHeight: Math.min(440, bounds.height),
+      minWidth: Math.min(560, bounds.width),
+      minHeight: Math.min(320, bounds.height),
       skipTaskbar: false,
       alwaysOnTop: true,
       show: false,
       icon: this.getAppIconPath(),
-      ...(isMac(this.platform) && {
-        vibrancy: 'under-window',
-        visualEffectState: 'active',
-        backgroundColor: '#00000000'
-      }),
+      backgroundColor: '#00000000',
       webPreferences: createSecureWebPreferences(this.preloadPath)
     });
 
@@ -372,20 +371,33 @@ class WindowManager {
     return this.tray;
   }
 
+  // Design 2h: the three latest folders first, then the search, options,
+  // update, settings and quit groups.
   buildTrayMenu() {
     const updateState = this.actions.getUpdateState?.();
     const updateLabel = updateState?.status === 'available' && updateState.availableVersion
-      ? `Mise à jour ${updateState.availableVersion} disponible...`
-      : 'Vérifier les mises à jour...';
+      ? `Mise à jour ${updateState.availableVersion} disponible…`
+      : 'Rechercher une mise à jour…';
+    const recents = (this.config.recentFolders || []).slice(0, TRAY_RECENT_COUNT);
+    const recentItems = recents.length === 0
+      ? []
+      : [
+        { label: `Récents · ${recents.length}`, enabled: false },
+        ...recents.map(recent => ({
+          label: formatRecentLabel(recent),
+          click: () => this.actions.openRecentFolder?.(recent.id)
+        })),
+        { type: 'separator' }
+      ];
 
     return this.Menu.buildFromTemplate([
+      ...recentItems,
       {
         label: 'Ouvrir la recherche',
+        accelerator: this.config.raccourciGlobal,
+        // Display only: the global shortcut is registered separately.
+        registerAccelerator: false,
         click: () => this.showMainWindow()
-      },
-      {
-        label: `Raccourci: ${this.formatShortcutLabel(this.config.raccourciGlobal)}`,
-        enabled: false
       },
       { type: 'separator' },
       {
@@ -412,12 +424,10 @@ class WindowManager {
         label: updateLabel,
         click: () => this.actions.checkForUpdates?.()
       },
-      { type: 'separator' },
       {
-        label: 'Paramètres...',
+        label: 'Paramètres…',
         click: () => this.createSettingsWindow()
       },
-      { type: 'separator' },
       {
         label: 'Quitter',
         click: () => this.actions.quit?.()
@@ -445,12 +455,7 @@ class WindowManager {
     const win = this.createMainWindow();
     const cursorPoint = this.screen.getCursorScreenPoint();
     const display = this.screen.getDisplayNearestPoint(cursorPoint);
-    const bounds = fitWindowToWorkArea(MAIN_WINDOW_SIZE, display.workArea, {
-      margin: 8,
-      minWidth: 360,
-      minHeight: 320
-    });
-    bounds.y = Math.max(display.workArea.y + 8, Math.round(bounds.y - 100));
+    const bounds = this.getMainWindowBounds(display);
     win.setBounds(bounds);
     win.show();
     win.focus();
@@ -532,23 +537,44 @@ class WindowManager {
     });
   }
 
-  resizeMiniWindow(width) {
+  // Sizes the mini window around the content measured by its renderer (the
+  // bar, plus the drop-down pane while it is open) and tells the renderer on
+  // which side of the bar the pane must be drawn.
+  setMiniLayout(layout) {
     if (!this.miniWindow || this.miniWindow.isDestroyed()) {
       return { success: false, error: 'Mini-barre indisponible' };
     }
 
-    if (isMac(this.platform) && this.config.integrationMode === 'docked') {
-      this.applyMiniBounds(this.calculateMiniBounds(width));
-    } else {
-      this.applyMiniBounds(this.expandMiniBoundsFromBase(width));
+    const frame = MINI_FRAME_MARGIN * 2;
+    const panelOpen = layout.panelWidth > 0 && layout.panelHeight > 0;
+    const width = Math.max(layout.barWidth, panelOpen ? layout.panelWidth : 0) + frame;
+    const collapsedHeight = layout.barHeight + frame;
+    const height = collapsedHeight + (panelOpen ? MINI_PANEL_GAP + layout.panelHeight : 0);
+    this.lastMiniLayout = layout;
 
-      if (this.config.integrationMode === 'docked' && isWindows(this.platform)) {
-        this.saveDockedPosition(this.getMiniBasePosition());
-      }
+    if (isMac(this.platform) && this.config.integrationMode === 'docked') {
+      // Menu bar popover: hangs under the tray icon.
+      const anchored = this.calculateMiniBounds(width);
+      this.applyMiniBounds({ ...anchored, width, height });
+      return { success: true, direction: 'down', align: 'left' };
+    }
+
+    const base = this.getMiniBasePosition();
+    const { bounds, direction, align } = layoutMiniBounds(base, {
+      width,
+      height,
+      collapsedWidth: layout.collapsedWidth + frame,
+      collapsedHeight
+    }, this.getMiniDisplay(base).bounds);
+    this.miniOffset = { x: base.x - bounds.x, y: base.y - bounds.y };
+    this.applyMiniBounds(bounds);
+
+    if (this.config.integrationMode === 'docked' && isWindows(this.platform)) {
+      this.saveDockedPosition(base);
     }
 
     this.bumpMiniWindowAboveTaskbar();
-    return { success: true };
+    return { success: true, direction, align };
   }
 
   getMiniBasePosition() {
@@ -560,17 +586,12 @@ class WindowManager {
     return { x, y };
   }
 
-  expandMiniBoundsFromBase(width) {
-    const base = this.getMiniBasePosition();
-    const docked = this.config.integrationMode === 'docked';
-    const display = this.screen.getDisplayNearestPoint({
+  // The bar may sit on the taskbar, docked or not: only the display edges
+  // limit it, never the work area.
+  getMiniDisplay(base) {
+    return this.screen.getDisplayNearestPoint({
       x: base.x + Math.round(MINI_BASE_WIDTH / 2),
       y: base.y + Math.round(MINI_DEFAULT_HEIGHT / 2)
-    });
-
-    // The docked bar overlaps the taskbar, so it may use the whole display.
-    return expandMiniBounds(base, width, docked ? display.bounds : display.workArea, {
-      padding: docked ? 0 : MINI_EDGE_PADDING
     });
   }
 
@@ -611,6 +632,8 @@ class WindowManager {
   destroyMiniWindow() {
     this.stopMiniZOrderKeeper();
     this.miniBasePosition = null;
+    this.miniOffset = { x: 0, y: 0 };
+    this.lastMiniLayout = null;
     this.lastMiniBounds = null;
     if (!this.miniWindow || this.miniWindow.isDestroyed()) {
       this.miniWindow = null;
@@ -632,16 +655,25 @@ class WindowManager {
   }
 
   toggleMiniPin() {
+    // Outside macOS (where docking means the menu bar popover), pinning and
+    // unpinning keep the bar exactly where the user placed it.
+    const currentPosition = this.miniWindow && !this.miniWindow.isDestroyed() && !isMac(this.platform)
+      ? { ...this.getMiniBasePosition() }
+      : null;
+
     this.configStore.update(config => {
       if (config.integrationMode === 'hidden') {
         config.integrationMode = 'floating';
       } else if (config.integrationMode === 'docked') {
-        if (this.miniWindow && !this.miniWindow.isDestroyed() && !isMac(this.platform)) {
-          const { x, y } = this.getMiniBasePosition();
-          config.miniBar.position = { x, y };
+        if (currentPosition) {
+          config.miniBar.position = currentPosition;
         }
         config.integrationMode = 'floating';
       } else {
+        if (currentPosition) {
+          config.miniBar.dockedUseCustomPosition = true;
+          config.miniBar.dockedPosition = currentPosition;
+        }
         config.integrationMode = 'docked';
       }
 
@@ -709,10 +741,19 @@ class WindowManager {
       return;
     }
 
-    this.applyMiniBounds(this.calculateMiniBounds(MINI_BASE_WIDTH));
+    this.reapplyMiniLayout();
     win.show();
     win.focus();
     win.webContents.send('mini-popover-shown');
+  }
+
+  // Lays the window out again from the last content size its renderer sent.
+  reapplyMiniLayout() {
+    if (this.lastMiniLayout) {
+      this.setMiniLayout(this.lastMiniLayout);
+    } else {
+      this.applyMiniBounds(this.calculateMiniBounds(MINI_BASE_WIDTH));
+    }
   }
 
   hideMacPopoverAfterOpen() {
@@ -777,10 +818,9 @@ class WindowManager {
       && this.miniWindow
       && !this.miniWindow.isDestroyed()
     ) {
-      const currentWidth = this.miniWindow.getBounds().width;
       const base = this.calculateMiniBounds(MINI_BASE_WIDTH);
       this.miniBasePosition = { x: base.x, y: base.y };
-      this.applyMiniBounds(this.expandMiniBoundsFromBase(currentWidth));
+      this.reapplyMiniLayout();
     }
     this.bumpMiniWindowAboveTaskbar();
   }

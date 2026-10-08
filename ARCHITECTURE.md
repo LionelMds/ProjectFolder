@@ -4,6 +4,17 @@
 
 Project Folder Launcher conserve une interface vanilla HTML/CSS/JavaScript. La refonte porte sur les responsabilités du processus principal, la sécurité, la testabilité et la distribution, sans introduire de framework UI.
 
+## Interface
+
+Les fenêtres reprennent la direction « deux volets » de la maquette Claude Design *Launcher UX* (tour 2), dans le système **Industry** : fond opaque, cadres filetés à angles droits avec repères « + », Barlow / Barlow Condensed, icônes Lucide au trait 1,5.
+
+- `src/ui/industry.css` porte les jetons (couleurs, rampes, ombres, thème sombre) et les composants communs : volets, lignes de liste, tables, contrôle segmenté, interrupteur, règle de progression.
+- Les polices sont embarquées dans `assets/fonts` (licence OFL) : l'application fonctionne hors ligne et la CSP n'autorise aucune ressource distante.
+- `src/shared/icons.js` contient les icônes Lucide utilisées (licence ISC), générées depuis `lucide-static` ; les anciens emoji de la configuration sont convertis à la migration (schéma 4).
+- Chaque fenêtre est transparente autour de son panneau pour laisser la place aux repères et à l'ombre.
+
+La mini-barre mesure son contenu et l'envoie au processus principal (`set-mini-layout`) : la fenêtre est redimensionnée autour de la position de base de la barre, qui ne bouge jamais. Elle s'élargit vers la gauche près du bord droit et son volet s'ouvre vers le haut quand la barre est en bas de l'écran (sur la barre des tâches).
+
 ## Processus principal
 
 `main.js` ne gère que le verrou d'instance unique et le cycle de vie Electron. `ApplicationController` assemble les services suivants :

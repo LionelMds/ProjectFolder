@@ -173,15 +173,167 @@
     return { accelerator: [...modifiers, key].join('+') };
   }
 
+  // Popup key column: "↵", "Ctrl+↵"; macOS uses the ⌘ ⇧ ⌥ glyphs.
+  function formatKeyGlyph(shortcut, isMac) {
+    if (!shortcut) {
+      return '—';
+    }
+    if (isMac) {
+      return shortcut
+        .replace('Ctrl+', '⌘')
+        .replace('Shift+', '⇧')
+        .replace('Alt+', '⌥')
+        .replace('Enter', '↵');
+    }
+    return shortcut.replace('Enter', '↵');
+  }
+
+  const MAC_MODIFIER_GLYPHS = [
+    ['Control', '⌃'],
+    ['Alt', '⌥'],
+    ['Shift', '⇧'],
+    ['CommandOrControl', '⌘'],
+    ['Command', '⌘'],
+    ['Super', '⌘']
+  ];
+
+  // Compact accelerator for chips: "Ctrl+Shift+P", or "⇧⌘P" on macOS.
+  function formatAcceleratorChip(accelerator, isMac) {
+    if (!isMac) {
+      return formatAccelerator(accelerator, false);
+    }
+    const parts = String(accelerator || 'CommandOrControl+Shift+P').split('+');
+    const key = parts.pop();
+    const glyphs = MAC_MODIFIER_GLYPHS
+      .filter(([name]) => parts.includes(name))
+      .map(([, glyph]) => glyph);
+    return `${[...new Set(glyphs)].join('')}${key}`;
+  }
+
+  const OPEN_BEHAVIOR_OPTIONS = Object.freeze([
+    Object.freeze({ value: 'newWindow', label: 'Fenêtre' }),
+    Object.freeze({ value: 'newTab', label: 'Onglet' }),
+    Object.freeze({ value: 'reuseWindow', label: 'Remplacer' })
+  ]);
+
+  function nextOpenBehavior(current) {
+    const index = OPEN_BEHAVIOR_OPTIONS.findIndex(option => option.value === current);
+    return OPEN_BEHAVIOR_OPTIONS[(index + 1) % OPEN_BEHAVIOR_OPTIONS.length].value;
+  }
+
+  function formatRelativeTime(timestamp, now = Date.now()) {
+    const elapsed = Math.max(0, now - Number(timestamp || 0));
+    const minutes = Math.floor(elapsed / 60000);
+    if (minutes < 1) {
+      return 'à l’instant';
+    }
+    if (minutes < 60) {
+      return `il y a ${minutes} min`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `il y a ${hours} h`;
+    }
+    const days = Math.floor(hours / 24);
+    if (days === 1) {
+      return 'hier';
+    }
+    if (days < 7) {
+      return `il y a ${days} j`;
+    }
+    const date = new Date(Number(timestamp));
+    return `le ${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  // Splits text around the first occurrence of query, for match highlighting.
+  function splitMatch(text, query) {
+    const value = String(text || '');
+    const needle = String(query || '');
+    const index = needle ? value.toLowerCase().indexOf(needle.toLowerCase()) : -1;
+    if (index < 0) {
+      return [{ text: value, match: false }];
+    }
+    return [
+      { text: value.slice(0, index), match: false },
+      { text: value.slice(index, index + needle.length), match: true },
+      { text: value.slice(index + needle.length), match: false }
+    ].filter(part => part.text);
+  }
+
+  function isProjectRootRecent(recent) {
+    return !String(recent.subfolderPath || '').trim();
+  }
+
+  // "2026-4889 · Plans d'exécution"; the project number alone for its root.
+  function formatRecentLabel(recent) {
+    const projectNumber = String(recent.projectNumber || '').trim();
+    const subfolderName = String(recent.subfolderName || '').trim();
+    if (projectNumber && !isProjectRootRecent(recent) && subfolderName) {
+      return `${projectNumber} · ${subfolderName}`;
+    }
+    if (projectNumber) {
+      return projectNumber;
+    }
+    const folderPath = String(recent.folderPath || '').trim();
+    return folderPath.split(/[\\/]+/).filter(Boolean).pop() || 'Dossier récent';
+  }
+
+  function normalizeRelativePath(value) {
+    return String(value || '').trim().replace(/[\\/]+/g, '/').replace(/^\.\//, '').replace(/\/$/, '').toLowerCase();
+  }
+
+  // Index of the configured subfolder a recent folder was opened in.
+  function findRecentSubfolderIndex(recent, subfolders) {
+    if (!Array.isArray(subfolders)) {
+      return -1;
+    }
+    const target = normalizeRelativePath(recent.subfolderPath);
+    return subfolders.findIndex(subfolder => normalizeRelativePath(subfolder && subfolder.chemin) === target);
+  }
+
+  // Former emoji icons and the Lucide icon that replaces them.
+  const EMOJI_ICONS = Object.freeze({
+    '📁': 'folder', '📂': 'folder-open', '🗂️': 'folder-open', '📋': 'clipboard-list', '📎': 'paperclip',
+    '🗃️': 'archive', '🗄️': 'archive', '💼': 'briefcase', '📄': 'file', '📑': 'file-text', '📝': 'file-text',
+    '📃': 'file-text', '📰': 'newspaper', '📜': 'scroll-text', '🧾': 'receipt', '📊': 'file-spreadsheet',
+    '📐': 'ruler', '📏': 'ruler', '🔧': 'wrench', '🔩': 'wrench', '⚙️': 'settings', '🛠️': 'hammer',
+    '🏗️': 'hard-hat', '🔬': 'microscope', '💰': 'file-text', '💵': 'banknote', '🏷️': 'tag',
+    '🧮': 'calculator', '📦': 'package', '🚚': 'truck', '🤝': 'handshake', '🏭': 'factory', '📧': 'mail',
+    '📞': 'phone', '💬': 'message-square', '📮': 'mail', '✉️': 'mail', '📨': 'mail', '🔔': 'bell',
+    '📣': 'megaphone', '✅': 'circle-check', '❌': 'circle-x', '⚠️': 'triangle-alert', '🔒': 'lock',
+    '⭐': 'star', '🔥': 'flame', '💡': 'lightbulb', '🎯': 'target', '🏠': 'house', '👤': 'user',
+    '👥': 'users', '🌐': 'globe', '📸': 'camera', '🎨': 'palette', '📅': 'calendar', '🕐': 'clock'
+  });
+
+  // Maps a stored icon (Lucide name or former emoji) to a Lucide icon name.
+  function iconNameFor(value, isKnownIcon) {
+    const icon = String(value || '').trim();
+    if (icon && isKnownIcon(icon)) {
+      return icon;
+    }
+    const withoutVariation = icon.replace(/️/g, '');
+    return EMOJI_ICONS[icon] || EMOJI_ICONS[`${withoutVariation}️`] || EMOJI_ICONS[withoutVariation] || 'folder';
+  }
+
   return Object.freeze({
     DIGITS_ONLY,
     FULL_PROJECT_NUMBER,
+    EMOJI_ICONS,
+    OPEN_BEHAVIOR_OPTIONS,
     acceleratorFromKeyboardEvent,
     defaultSubfolderIndex,
+    findRecentSubfolderIndex,
     findSubfolderByShortcut,
     formatAccelerator,
+    formatAcceleratorChip,
+    formatKeyGlyph,
+    formatRecentLabel,
+    formatRelativeTime,
     formatSubfolderShortcut,
+    iconNameFor,
+    nextOpenBehavior,
     resolveSubfolderIndex,
+    splitMatch,
     subfolderShortcutFromEvent
   });
 }));
