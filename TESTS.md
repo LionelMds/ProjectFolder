@@ -66,7 +66,7 @@
 ## Volet déroulant de la mini-barre
 
 1. Cliquer dans le champ de la mini-barre : un volet « récents | aperçu » s'ouvre.
-2. Avec la mini-barre posée sur la barre des tâches, vérifier que le volet s'ouvre vers le haut et que la barre ne bouge pas.
+2. Avec la mini-barre posée sur la barre des tâches, vérifier que le volet s'ouvre vers le haut et que la barre ne bouge pas. Avec dix récents, la liste défile dans le volet sans jamais recouvrir la barre.
 3. Près du bord droit de l'écran, vérifier que la barre et le volet s'étendent vers la gauche.
 4. Cliquer ailleurs : le volet se referme et la fenêtre reprend sa taille.
 
