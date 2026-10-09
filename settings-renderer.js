@@ -14,6 +14,7 @@ const closeBtn = document.getElementById('closeBtn');
 
 const SHORTCUT_OPTIONS = ['Enter', 'Ctrl+Enter', 'Shift+Enter', 'Alt+Enter'];
 const QUICK_ICONS = ['folder', 'ruler', 'factory', 'file-text'];
+const NEW_SUBFOLDER_NAME = 'Nouveau dossier';
 const SECTIONS = [
     { id: 'root', label: 'Dossier racine', icon: 'folder', render: renderRootSection },
     { id: 'subfolders', label: 'Sous-dossiers', icon: 'folder-open', render: renderSubfoldersSection },
@@ -372,7 +373,7 @@ function moveSubfolder(from, target) {
 }
 
 function addSubfolder() {
-    form.sousDossiers.push({ nom: 'Nouveau dossier', chemin: '', raccourci: null, icone: 'folder' });
+    form.sousDossiers.push({ nom: NEW_SUBFOLDER_NAME, chemin: '', raccourci: null, icone: 'folder' });
     view.selectedSubfolder = form.sousDossiers.length - 1;
     changed();
     renderSection();
@@ -418,9 +419,44 @@ function subfolderEditor() {
         ...corners(),
         field('Nom', nameInput),
         field('Icône', iconSelector(subfolder)),
-        field('Chemin relatif', pathInput),
+        field('Chemin relatif', el('div', { className: 'path-row' }, [
+            pathInput,
+            el('button', {
+                className: 'btn btn-secondary',
+                text: 'Parcourir…',
+                attrs: { type: 'button', title: 'Choisir le dossier dans un projet existant' },
+                on: { click: () => browseSubfolder(view.selectedSubfolder) }
+            })
+        ])),
         field('Touche dans la popup', subfolderKeyCapture(subfolder))
     ]);
+}
+
+// The folder is picked inside a real project; the main process returns its
+// path relative to that project.
+async function browseSubfolder(index) {
+    if (!form.racine) {
+        setStatus('Choisissez d’abord le dossier racine.', true);
+        return;
+    }
+
+    const subfolder = form.sousDossiers[index];
+    const result = await window.electronAPI.selectSubfolder(form.racine, subfolder.chemin);
+    if (!result || !result.success) {
+        setStatus(result?.error || 'Impossible de choisir ce dossier.', true);
+        return;
+    }
+    if (result.chemin === null || form.sousDossiers[index] !== subfolder) {
+        return;
+    }
+
+    subfolder.chemin = result.chemin;
+    // A subfolder just added is named after the folder picked.
+    if (!subfolder.nom.trim() || subfolder.nom === NEW_SUBFOLDER_NAME) {
+        subfolder.nom = result.chemin.split(/[\\/]/).pop() || 'Dossier principal';
+    }
+    changed();
+    renderSection();
 }
 
 function iconSelector(subfolder) {

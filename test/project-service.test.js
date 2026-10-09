@@ -140,6 +140,59 @@ test('the closest existing numbers are suggested for a missing project', async t
   assert.deepEqual(await service.listYears(), ['2026', '2025', '2024']);
 });
 
+test('a folder picked inside a project becomes a path relative to it', t => {
+  const root = createProjectRoot(t);
+  const service = new ProjectService(() => ({ racine: '' }));
+
+  assert.equal(
+    service.subfolderPathFromSelection(root, path.join(root, '2026', '2026-4889', 'Plans', "Plan d'exécution")),
+    path.join('Plans', "Plan d'exécution")
+  );
+  assert.equal(service.subfolderPathFromSelection(`${root}${path.sep}`, path.join(root, '2024', '2024-0001')), '');
+  for (const outside of [
+    root,
+    path.join(root, '2026'),
+    path.join(root, 'Modèles', '2026-4889'),
+    path.join(root, '2026', '2025-4889', 'Plans'),
+    path.join(root, '2026', 'Archives', 'Plans'),
+    path.dirname(root)
+  ]) {
+    assert.throws(() => service.subfolderPathFromSelection(root, outside), /situé dans un projet/, outside);
+  }
+});
+
+test('the subfolder dialog starts in a real project', async t => {
+  const root = createProjectRoot(t);
+  for (const name of ['2025/2025-0042/Devis', '2026/2026-0007', '2026/2026-0012/Plans', '2026/Archives']) {
+    fs.mkdirSync(path.join(root, ...name.split('/')), { recursive: true });
+  }
+  const service = new ProjectService(() => ({ racine: '' }));
+
+  // The newest project, or the first recent one still there.
+  assert.equal(await service.findSampleProject(root), path.join(root, '2026', '2026-0012'));
+  assert.equal(
+    await service.findSampleProject(root, ['2024-9999', 'nope', '2025-0042']),
+    path.join(root, '2025', '2025-0042')
+  );
+  // The subfolder being edited when it exists in that project.
+  assert.equal(
+    await service.findSubfolderBrowseStart(root, ['2025-0042'], 'Devis'),
+    path.join(root, '2025', '2025-0042', 'Devis')
+  );
+  assert.equal(
+    await service.findSubfolderBrowseStart(root, [], 'Plans'),
+    path.join(root, '2026', '2026-0012', 'Plans')
+  );
+  for (const subfolderPath of ['Absent', '..\\..', 'C:\\Windows', '']) {
+    assert.equal(
+      await service.findSubfolderBrowseStart(root, ['2025-0042'], subfolderPath),
+      path.join(root, '2025', '2025-0042')
+    );
+  }
+  const emptyRoot = createProjectRoot(t);
+  assert.equal(await service.findSubfolderBrowseStart(emptyRoot, [], 'Devis'), emptyRoot);
+});
+
 test('a candidate root is inspected before it is saved', async t => {
   const root = createProjectRoot(t);
   fs.mkdirSync(path.join(root, '2026', '2026-0001'), { recursive: true });

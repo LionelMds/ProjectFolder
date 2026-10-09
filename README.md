@@ -23,7 +23,7 @@ Tapez `4889` et l'application cherche automatiquement le premier dossier `YYYY-4
 - Mode d'ouverture (fenêtre, onglet, remplacer) choisi au moment d'ouvrir : `Alt` seul le fait changer.
 - Mini-barre posable n'importe où, y compris sur la barre des tâches, épinglée sur place avec la punaise ; au focus, un volet déroulant liste les récents.
 - Menu tray avec les trois derniers dossiers ; popover de la barre des menus sur macOS.
-- Sous-dossiers configurables avec nom, chemin, touche et icône (Lucide).
+- Sous-dossiers configurables avec nom, chemin (bouton « Parcourir… » dans un projet existant), touche et icône (Lucide).
 - Thème clair ou sombre selon le système, style « Industry » (Barlow, cadres filetés).
 - Démarrage automatique via l'API native Electron.
 - Configuration portable et migration des anciennes préférences.

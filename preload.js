@@ -35,6 +35,7 @@ const api = Object.freeze({
   installDownloadedUpdate: () => ipcRenderer.invoke('install-downloaded-update'),
   closeUpdateWindow: () => ipcRenderer.invoke('close-update-window'),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
+  selectSubfolder: (rootPath, subfolderPath) => ipcRenderer.invoke('select-subfolder', rootPath, subfolderPath),
   inspectRoot: rootPath => ipcRenderer.invoke('inspect-root', rootPath),
   saveSettings: newConfig => ipcRenderer.invoke('save-settings', newConfig),
   closeSettings: () => ipcRenderer.invoke('close-settings'),

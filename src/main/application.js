@@ -341,7 +341,7 @@ class ApplicationController {
     });
 
     this.ipcRouter.handle('select-folder', [SETTINGS], async () => {
-      const result = await this.electron.dialog.showOpenDialog({
+      const result = await this.showFolderDialog({
         properties: ['openDirectory'],
         title: 'Choisir le dossier racine'
       });
@@ -349,6 +349,10 @@ class ApplicationController {
         ? result.filePaths[0]
         : null;
     });
+
+    this.ipcRouter.handle('select-subfolder', [SETTINGS], async (event, rawRoot, rawSubfolderPath) => (
+      this.selectSubfolder(validateRootCandidate(rawRoot), rawSubfolderPath)
+    ));
 
     this.ipcRouter.handle('inspect-root', [SETTINGS], async (event, rawRoot) => ({
       success: true,
@@ -375,6 +379,38 @@ class ApplicationController {
     this.ipcRouter.handle('close-update-window', [UPDATE], async () => (
       this.updaterService.closeWindow()
     ));
+  }
+
+  // The dialog opens in a real project, so any of its folders can be picked;
+  // the answer is the path relative to that project.
+  async selectSubfolder(root, rawSubfolderPath) {
+    const defaultPath = await this.projectService.findSubfolderBrowseStart(
+      root,
+      this.configStore.config.recentFolders.map(recent => recent.projectNumber),
+      typeof rawSubfolderPath === 'string' ? rawSubfolderPath.slice(0, 1000) : ''
+    );
+    const result = await this.showFolderDialog({
+      properties: ['openDirectory'],
+      title: 'Choisir le sous-dossier dans un projet',
+      defaultPath
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { success: true, chemin: null };
+    }
+
+    return {
+      success: true,
+      chemin: this.projectService.subfolderPathFromSelection(root, result.filePaths[0])
+    };
+  }
+
+  // The settings window stays on top of every other window: a dialog it does
+  // not own would open behind it.
+  showFolderDialog(options) {
+    const owner = this.windowManager?.settingsWindow;
+    return owner && !owner.isDestroyed()
+      ? this.electron.dialog.showOpenDialog(owner, options)
+      : this.electron.dialog.showOpenDialog(options);
   }
 
   async openProjectFolder(rawInput, rawSubfolderIndex, rawBehavior) {

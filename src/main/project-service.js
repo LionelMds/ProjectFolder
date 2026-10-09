@@ -142,6 +142,74 @@ class ProjectService {
     };
   }
 
+  // A real project to browse from: the first preferred one still under the
+  // root, otherwise the newest project of the newest year.
+  async findSampleProject(rootDir, preferredNumbers = []) {
+    const root = String(rootDir || '').trim();
+    if (!root) {
+      return null;
+    }
+
+    for (const projectNumber of preferredNumbers) {
+      if (!FULL_PROJECT_NUMBER.test(String(projectNumber || ''))) {
+        continue;
+      }
+      const projectPath = this.path.join(root, projectNumber.slice(0, 4), projectNumber);
+      if (await this.isDirectory(projectPath)) {
+        return projectPath;
+      }
+    }
+
+    for (const year of await this.listYears(root)) {
+      const projects = (await this.listProjectsOfYear(root, year)).sort();
+      if (projects.length > 0) {
+        return this.path.join(root, year, projects[projects.length - 1]);
+      }
+    }
+    return null;
+  }
+
+  // Where the subfolder dialog opens: the subfolder being edited inside a
+  // sample project, else that project, else the root itself.
+  async findSubfolderBrowseStart(rootDir, preferredNumbers = [], subfolderPath = '') {
+    const root = String(rootDir || '').trim();
+    const projectPath = await this.findSampleProject(root, preferredNumbers);
+    if (!projectPath) {
+      return root;
+    }
+
+    const relative = String(subfolderPath || '').trim();
+    try {
+      assertRelativeSubfolderPath(relative);
+      const candidate = this.path.resolve(projectPath, relative.replace(/[\\/]+/g, this.path.sep));
+      if (relative && isPathInside(projectPath, candidate, this.path) && await this.isDirectory(candidate)) {
+        return candidate;
+      }
+    } catch {
+      // A path still being typed: the project itself is a good start.
+    }
+    return projectPath;
+  }
+
+  // A folder picked inside any project, as the path relative to that project
+  // stored by subfolders ('' for the project folder itself).
+  subfolderPathFromSelection(rootDir, selectedPath) {
+    const relative = this.path.relative(
+      this.path.resolve(String(rootDir || '')),
+      this.path.resolve(String(selectedPath || ''))
+    );
+    const [year, projectNumber, ...rest] = relative.split(/[\\/]+/);
+    const insideProject = relative !== ''
+      && !this.path.isAbsolute(relative)
+      && YEAR_FOLDER.test(year)
+      && new RegExp(`^${year}-\\d{4}$`).test(projectNumber || '');
+
+    if (!insideProject) {
+      throw new Error('Choisissez un dossier situé dans un projet du dossier racine (par exemple 2026-4889 ou l’un de ses sous-dossiers).');
+    }
+    return rest.join(this.path.sep);
+  }
+
   async findProjectByDigits(digits) {
     if (!FOUR_DIGITS.test(String(digits || ''))) {
       return null;

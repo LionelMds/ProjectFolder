@@ -100,15 +100,16 @@
 
 ## Paramètres
 
-1. Changer le dossier racine avec "Parcourir".
+1. Changer le dossier racine avec "Parcourir" : la boîte de dialogue s'ouvre devant la fenêtre Paramètres.
 2. Ajouter un sous-dossier.
 3. Modifier son nom, son chemin, sa touche et son icône.
-4. Ouvrir le sélecteur d'icônes (+) et vérifier les six catégories.
-5. Déplacer le sous-dossier avec `▲` et `▼`.
-6. Supprimer le sous-dossier.
-7. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
-8. Essayer un raccourci déjà utilisé et vérifier que l'erreur est visible et que l'ancien raccourci continue de fonctionner.
-9. Activer et désactiver le démarrage automatique.
+4. Cliquer sur "Parcourir…" à côté de "Chemin relatif" : la boîte s'ouvre dans un projet existant (le dernier ouvert), sur le sous-dossier actuel s'il existe. Choisir un dossier du projet : le chemin devient relatif (`Plans\Exécution`) et un sous-dossier nouvellement ajouté prend le nom du dossier. Choisir un dossier hors d'un projet : un message l'explique et rien ne change.
+5. Ouvrir le sélecteur d'icônes (+) et vérifier les six catégories.
+6. Déplacer le sous-dossier avec `▲` et `▼`.
+7. Supprimer le sous-dossier.
+8. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
+9. Essayer un raccourci déjà utilisé et vérifier que l'erreur est visible et que l'ancien raccourci continue de fonctionner.
+10. Activer et désactiver le démarrage automatique.
 
 ## Tray et menu
 
