@@ -35,6 +35,14 @@ public class ProjectLauncherWin32 {
   [DllImport("user32.dll")] public static extern bool SetWindowPos(
     IntPtr hWnd, IntPtr insertAfter, int x, int y, int width, int height, uint flags);
   [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+  [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+  [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+  [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+  public static extern IntPtr FindWindowEx(IntPtr parent, IntPtr childAfter, string className, string title);
+  [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, IntPtr processId);
+  [DllImport("kernel32.dll")] public static extern uint GetCurrentThreadId();
+  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint attach, uint attachTo, bool doAttach);
+  [DllImport("user32.dll")] public static extern uint SendInput(uint count, INPUT[] inputs, int size);
 
   [StructLayout(LayoutKind.Sequential)]
   public struct RECT { public int Left, Top, Right, Bottom; }
@@ -43,6 +51,40 @@ public class ProjectLauncherWin32 {
     public int Size;
     public RECT Monitor, WorkArea;
     public uint Flags;
+  }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct MOUSEINPUT { public int Dx, Dy; public uint MouseData, Flags, Time; public IntPtr ExtraInfo; }
+  [StructLayout(LayoutKind.Sequential)]
+  public struct INPUT { public uint Type; public MOUSEINPUT Mouse; }
+
+  // Explorer's own "New tab" command (Windows 11), posted to the active tab:
+  // unlike Ctrl+T it does not need the keyboard focus.
+  public static bool RequestNewTab(IntPtr frame) {
+    IntPtr tab = FindWindowEx(frame, IntPtr.Zero, "ShellTabWindowClass", null);
+    return tab != IntPtr.Zero && PostMessage(tab, 0x0111, new IntPtr(0xA21B), IntPtr.Zero);
+  }
+
+  // Windows gives the foreground only to the process that received the last
+  // input, which the long-lived worker never is. Each attempt escalates: a
+  // plain request, then after an empty mouse input, then while sharing the
+  // input state of the current foreground thread.
+  public static bool RequestForeground(IntPtr hWnd, int attempt) {
+    if (attempt == 1) {
+      INPUT[] inputs = new INPUT[1];
+      SendInput(1, inputs, Marshal.SizeOf(typeof(INPUT)));
+    }
+    if (attempt < 2) return SetForegroundWindow(hWnd);
+
+    uint foregroundThread = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
+    uint currentThread = GetCurrentThreadId();
+    bool attached = foregroundThread != 0 && foregroundThread != currentThread
+      && AttachThreadInput(currentThread, foregroundThread, true);
+    try {
+      BringWindowToTop(hWnd);
+      return SetForegroundWindow(hWnd);
+    } finally {
+      if (attached) AttachThreadInput(currentThread, foregroundThread, false);
+    }
   }
 
   public static RECT FitWorkArea(RECT area) {
@@ -250,14 +292,24 @@ function Activate-ExplorerWindow($Window, [bool]$FitSize = $false) {
     if ([ProjectLauncherWin32]::IsIconic($hwnd)) {
       [ProjectLauncherWin32]::ShowWindow($hwnd, 9) | Out-Null
     }
-    [ProjectLauncherWin32]::SetForegroundWindow($hwnd) | Out-Null
-    if (-not (Wait-ForegroundWindow $hwnd 400)) {
-      Write-Warning 'Explorer window did not become the foreground window'
-      return $false
+    for ($attempt = 0; $attempt -lt 3; $attempt++) {
+      if ([ProjectLauncherWin32]::RequestForeground($hwnd, $attempt) -and (Wait-ForegroundWindow $hwnd 250)) {
+        Start-Sleep -Milliseconds 80
+        return $true
+      }
     }
-    Start-Sleep -Milliseconds 80
-    return $true
+    Write-Warning 'Explorer window did not become the foreground window'
+    return $false
   } catch {
+    return $false
+  }
+}
+
+function Request-ExplorerNewTab($Window) {
+  try {
+    return [ProjectLauncherWin32]::RequestNewTab([IntPtr]([int64]$Window.HWND))
+  } catch {
+    Write-Warning ('new-tab-command-error:' + $_.Exception.Message)
     return $false
   }
 }
@@ -399,19 +451,32 @@ function Navigate-NewTab($Shell, [string]$Path) {
     return
   }
 
+  # Explorer's own command first: it works without the keyboard focus.
+  $route = 'command'
+  $newTab = $null
   $beforeWindows = @(Get-ExplorerWindows $Shell)
-  if (-not (Activate-ExplorerWindow $target)) {
-    Open-InNewExplorerWindow $Shell $Path
-    Write-Output 'fallback:new-window:explorer-not-foreground'
-    return
+  if (Request-ExplorerNewTab $target) {
+    $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500
   }
-  [System.Windows.Forms.SendKeys]::SendWait('^t')
 
-  $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500
+  if ($null -eq $newTab) {
+    Write-Output 'new-tab-command-failed'
+    $route = 'com'
+    $beforeWindows = @(Get-ExplorerWindows $Shell)
+    if (-not (Activate-ExplorerWindow $target)) {
+      Open-InNewExplorerWindow $Shell $Path
+      Write-Output 'fallback:new-window:explorer-not-foreground'
+      return
+    }
+    [System.Windows.Forms.SendKeys]::SendWait('^t')
+    $newTab = Find-NewExplorerWindow $Shell $beforeWindows 1500
+  }
+
   if ($null -ne $newTab) {
-    Activate-ExplorerWindow $newTab | Out-Null
     if (Invoke-ExplorerNavigate $newTab $Path 1100) {
-      Write-Output 'opened:new-tab:com'
+      # The tab is open even if Windows keeps Explorer in the background.
+      Activate-ExplorerWindow $newTab | Out-Null
+      Write-Output ('opened:new-tab:' + $route)
       return
     }
     Write-Output 'new-tab-com-navigation-failed'

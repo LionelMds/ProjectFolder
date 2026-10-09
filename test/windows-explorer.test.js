@@ -32,7 +32,10 @@ test('Explorer sizing only applies to newly created windows', () => {
 test('keystrokes are only sent once Explorer is confirmed in the foreground', () => {
   const script = buildWindowsExplorerComNavigationScript('C:\\Temp', 'newTab');
 
-  assert.match(script, /if \(-not \(Wait-ForegroundWindow \$hwnd 400\)\) \{[\s\S]*?return \$false/);
+  assert.match(
+    script,
+    /RequestForeground\(\$hwnd, \$attempt\) -and \(Wait-ForegroundWindow \$hwnd \d+\)\) \{\s*Start-Sleep -Milliseconds \d+\s*return \$true[\s\S]*?Write-Warning 'Explorer window did not become the foreground window'\s*return \$false/
+  );
   assert.match(
     script,
     /if \(-not \(Activate-ExplorerWindow \$target\)\) \{[\s\S]*?return\s*\}\s*\[System\.Windows\.Forms\.SendKeys\]::SendWait\('\^t'\)/
@@ -45,6 +48,20 @@ test('keystrokes are only sent once Explorer is confirmed in the foreground', ()
     script,
     /if \(-not \(Test-IsForegroundWindow \$hwnd\)\) \{[\s\S]*?return \$false\s*\}\s*\[System\.Windows\.Forms\.SendKeys\]::SendWait\('\{ENTER\}'\)/
   );
+});
+
+// The long-lived worker never owns the foreground: the tab must come from
+// Explorer's own command, Ctrl+T being the fallback.
+test('a new tab is requested from Explorer before any keystroke', () => {
+  const script = buildWindowsExplorerComNavigationScript('C:\\Temp', 'newTab');
+  const newTab = script.slice(script.indexOf('function Navigate-NewTab'), script.indexOf('function Invoke-ExplorerNavigation'));
+
+  assert.match(script, /FindWindowEx\(frame, IntPtr\.Zero, "ShellTabWindowClass", null\)/);
+  assert.match(script, /PostMessage\(tab, 0x0111, new IntPtr\(0xA21B\), IntPtr\.Zero\)/);
+  assert.ok(newTab.indexOf('Request-ExplorerNewTab $target') >= 0);
+  assert.ok(newTab.indexOf('Request-ExplorerNewTab $target') < newTab.indexOf("SendWait('^t')"));
+  assert.match(newTab, /if \(\$null -eq \$newTab\) \{\s*Write-Output 'new-tab-command-failed'/);
+  assert.match(newTab, /Write-Output \('opened:new-tab:' \+ \$route\)/);
 });
 
 test('a failed COM navigation is reported as a failure', {

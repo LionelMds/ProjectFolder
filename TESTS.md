@@ -91,7 +91,7 @@
 1. Choisir "Nouvelle fenêtre Explorer/Finder" et ouvrir un projet.
 2. Vérifier qu'une nouvelle fenêtre s'ouvre.
 3. Choisir "Nouvel onglet dans la fenêtre active" et ouvrir un projet.
-4. Sur Windows 11, vérifier qu'un nouvel onglet Explorer est créé quand une fenêtre Explorer existe.
+4. Sur Windows 11, vérifier qu'un nouvel onglet Explorer est créé quand une fenêtre Explorer existe, aussi en tapant le numéro dans la popup ou la mini-barre puis `Entrée` (la fenêtre Explorer doit passer devant ; le journal indique `opened:new-tab:command`).
 5. Vérifier que le chemin apparaît instantanément, sans saisie caractère par caractère, et qu'aucun onglet "Ce PC" ne reste devant.
 6. Sur macOS, vérifier qu'un nouvel onglet Finder est créé quand une fenêtre Finder existe.
 7. Choisir "Réutiliser la fenêtre active" et ouvrir un projet.

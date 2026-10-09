@@ -54,7 +54,11 @@ Au démarrage, `.bak` est relu si `config.json` est illisible ou absent.
 
 ## Explorer Windows
 
-L'ouverture en nouvel onglet utilise d'abord `Shell.Application` pour cibler l'objet COM du nouvel onglet. Si Windows ne publie pas cet objet assez vite, UI Automation cible le champ actif après `Ctrl+L` et applique le chemin via `ValuePattern.SetValue`. Le chemin apparaît instantanément, sans frappe simulée et sans modifier le presse-papiers.
+L'ouverture en nouvel onglet crée l'onglet avec la commande « Nouvel onglet » d'Explorer (`WM_COMMAND` `0xA21B` posté à la fenêtre `ShellTabWindowClass` de l'onglet actif, Windows 11) : contrairement à `Ctrl+T`, elle ne demande pas le focus clavier. `Ctrl+T` ne sert plus que de repli si une version de Windows ignorait cette commande.
+
+`Shell.Application` cible ensuite l'objet COM du nouvel onglet pour y naviguer. Si Windows ne publie pas cet objet assez vite, UI Automation cible le champ actif après `Ctrl+L` et applique le chemin via `ValuePattern.SetValue`. Le chemin apparaît instantanément, sans frappe simulée et sans modifier le presse-papiers.
+
+Windows ne laisse passer au premier plan que le processus qui a reçu la dernière saisie : le processus PowerShell persistant ne l'est jamais (c'est la fenêtre de recherche qui reçoit la frappe). Pour ramener Explorer devant, `RequestForeground` essaie successivement une demande simple, une demande précédée d'une saisie souris vide, puis une demande faite en partageant l'état d'entrée du thread au premier plan (`AttachThreadInput`).
 
 Si Explorer ne permet aucune des deux méthodes, l'application ouvre une nouvelle fenêtre afin de toujours atteindre le dossier demandé.
 
