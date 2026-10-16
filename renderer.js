@@ -476,7 +476,7 @@ async function openProject(projectNumber, subfolderIndex) {
 }
 
 async function openRecent(recent) {
-    const result = await window.electronAPI.openRecentFolder(recent.id);
+    const result = await window.electronAPI.openRecentFolder(recent.id, state.openBehavior);
     if (!result.success) {
         console.error('Failed to open recent folder:', result.error);
     }
