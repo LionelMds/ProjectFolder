@@ -193,6 +193,37 @@ test('the subfolder dialog starts in a real project', async t => {
   assert.equal(await service.findSubfolderBrowseStart(emptyRoot, [], 'Devis'), emptyRoot);
 });
 
+test('a root macOS refuses to read is not reported as missing', async () => {
+  const deniedFs = {
+    promises: {
+      async readdir() {
+        throw Object.assign(new Error('Operation not permitted'), { code: 'EPERM' });
+      },
+      async stat() {
+        return { isDirectory: () => true };
+      }
+    }
+  };
+  const service = new ProjectService(() => ({ racine: '' }), { fs: deniedFs });
+
+  assert.deepEqual(
+    await service.inspectRoot(path.resolve('/Users/lionel/Library/CloudStorage/OneDrive-X/Projets')),
+    { exists: true, accessDenied: true, years: [] }
+  );
+});
+
+test('the root dialog opens at the closest folder still present', async t => {
+  const root = createProjectRoot(t);
+  fs.mkdirSync(path.join(root, 'OneDrive', 'Projets'), { recursive: true });
+  const service = new ProjectService(() => ({ racine: '' }));
+
+  assert.equal(await service.findExistingFolder(path.join(root, 'OneDrive', 'Projets')), path.join(root, 'OneDrive', 'Projets'));
+  assert.equal(await service.findExistingFolder(path.join(root, 'OneDrive - Ancien', 'Projets')), root);
+  assert.equal(await service.findExistingFolder(`"${path.join(root, 'OneDrive')}"`), path.join(root, 'OneDrive'));
+  assert.equal(await service.findExistingFolder(''), null);
+  assert.equal(await service.findExistingFolder('Projets'), null);
+});
+
 test('a candidate root is inspected before it is saved', async t => {
   const root = createProjectRoot(t);
   fs.mkdirSync(path.join(root, '2026', '2026-0001'), { recursive: true });

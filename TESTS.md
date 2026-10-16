@@ -100,16 +100,18 @@
 
 ## Paramètres
 
-1. Changer le dossier racine avec "Parcourir" : la boîte de dialogue s'ouvre devant la fenêtre Paramètres.
-2. Ajouter un sous-dossier.
-3. Modifier son nom, son chemin, sa touche et son icône.
-4. Cliquer sur "Parcourir…" à côté de "Chemin relatif" : la boîte s'ouvre dans un projet existant (le dernier ouvert), sur le sous-dossier actuel s'il existe. Choisir un dossier du projet : le chemin devient relatif (`Plans\Exécution`) et un sous-dossier nouvellement ajouté prend le nom du dossier. Choisir un dossier hors d'un projet : un message l'explique et rien ne change.
-5. Ouvrir le sélecteur d'icônes (+) et vérifier les six catégories.
-6. Déplacer le sous-dossier avec `▲` et `▼`.
-7. Supprimer le sous-dossier.
-8. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
-9. Essayer un raccourci déjà utilisé et vérifier que l'erreur est visible et que l'ancien raccourci continue de fonctionner.
-10. Activer et désactiver le démarrage automatique.
+1. Changer le dossier racine avec "Parcourir" : la boîte de dialogue s'ouvre devant la fenêtre Paramètres, sur le dossier actuel (ou son parent le plus proche s'il n'existe plus).
+2. Taper ou coller le chemin du dossier racine, avec ou sans guillemets, ou avec `~` sur macOS : la structure détectée se met à jour pendant la saisie sans faire perdre le focus. Un chemin inexistant affiche « introuvable » et l'enregistrement le refuse ; sur macOS, un dossier OneDrive non autorisé affiche le message d'accès refusé.
+3. Ouvrir quelques projets, puis enregistrer un autre dossier racine contenant les mêmes projets (OneDrive réinstallé) : les récents de la popup, de la mini-barre et du menu de l'icône ouvrent le nouvel emplacement.
+4. Ajouter un sous-dossier.
+5. Modifier son nom, son chemin, sa touche et son icône.
+6. Cliquer sur "Parcourir…" à côté de "Chemin relatif" : la boîte s'ouvre dans un projet existant (le dernier ouvert), sur le sous-dossier actuel s'il existe. Choisir un dossier du projet : le chemin devient relatif (`Plans\Exécution`) et un sous-dossier nouvellement ajouté prend le nom du dossier. Choisir un dossier hors d'un projet : un message l'explique et rien ne change.
+7. Ouvrir le sélecteur d'icônes (+) et vérifier les six catégories.
+8. Déplacer le sous-dossier avec `▲` et `▼`.
+9. Supprimer le sous-dossier.
+10. Changer le raccourci global, enregistrer, puis vérifier que l'ancien raccourci ne répond plus.
+11. Essayer un raccourci déjà utilisé et vérifier que l'erreur est visible et que l'ancien raccourci continue de fonctionner.
+12. Activer et désactiver le démarrage automatique.
 
 ## Tray et menu
 

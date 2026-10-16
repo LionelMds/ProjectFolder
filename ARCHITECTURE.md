@@ -40,7 +40,7 @@ Après le packaging, les fuses Electron désactivent `ELECTRON_RUN_AS_NODE`, `NO
 
 ## Configuration
 
-Le schéma courant est `schemaVersion: 3`. Les anciennes clés `reuseExplorerWindow`, `openInNewTab` et `miniBar.enabled` sont lues pendant la migration mais ne sont plus réécrites.
+Le schéma courant est `schemaVersion: 4`. Les anciennes clés `reuseExplorerWindow`, `openInNewTab` et `miniBar.enabled` sont lues pendant la migration mais ne sont plus réécrites.
 
 Une sauvegarde suit ce cycle :
 
@@ -51,6 +51,10 @@ Une sauvegarde suit ce cycle :
 5. En cas de verrou passager (antivirus, OneDrive), copie et renommage sont retentés.
 
 Au démarrage, `.bak` est relu si `config.json` est illisible ou absent.
+
+Le dossier racine peut être saisi à la main : les guillemets de « Copier en tant que chemin d'accès » sont retirés et `~` désigne le dossier personnel. Un dossier introuvable et un accès refusé (macOS demande une autorisation pour les fichiers synchronisés par OneDrive) donnent des messages distincts.
+
+Les récents mémorisent le chemin absolu ouvert. À chaque migration de la configuration (chargement, enregistrement), le chemin des récents d'un projet est reconstruit sous la racine courante à partir du numéro et du sous-dossier : quand la racine change (OneDrive réinstallé, partage renommé), les récents la suivent au lieu de rouvrir l'ancien emplacement.
 
 ## Explorer Windows
 

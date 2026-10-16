@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const {
   CONFIG_SCHEMA_VERSION,
@@ -12,7 +13,7 @@ const {
   VALID_OPEN_BEHAVIORS,
   VALID_SUBFOLDER_SHORTCUTS
 } = require('./constants');
-const { normalizeRecentFolders } = require('./recent-folders');
+const { rebaseRecentFolders } = require('./recent-folders');
 const { hasIcon } = require('../shared/icons');
 const { iconNameFor } = require('../shared/launcher-shared');
 
@@ -131,9 +132,11 @@ function migrateConfig(rawConfig, platform = process.platform) {
     ? legacyMiniBar.lastVisibleIntegrationMode
     : (integrationMode === 'hidden' ? 'floating' : integrationMode);
 
+  const racine = String(source.racine || '').trim();
+
   return {
     schemaVersion: CONFIG_SCHEMA_VERSION,
-    racine: String(source.racine || '').trim(),
+    racine,
     sousDossiers: sanitizeSubfolders(source.sousDossiers),
     raccourciGlobal: truncate(
       String(source.raccourciGlobal || defaults.raccourciGlobal).trim(),
@@ -142,7 +145,7 @@ function migrateConfig(rawConfig, platform = process.platform) {
     autoStart: Boolean(source.autoStart),
     integrationMode,
     openBehavior,
-    recentFolders: normalizeRecentFolders(source.recentFolders, { platform }),
+    recentFolders: rebaseRecentFolders(source.recentFolders, racine, { platform }),
     updates: {
       lastNotifiedVersion: sanitizeVersion(sourceUpdates.lastNotifiedVersion)
     },
@@ -160,7 +163,7 @@ function validateSettingsInput(input) {
     throw new TypeError('Configuration invalide.');
   }
 
-  const root = String(input.racine || '').trim();
+  const root = normalizeRootPath(input.racine);
   if (root && !path.isAbsolute(root)) {
     throw new Error('Le dossier racine doit être un chemin absolu.');
   }
@@ -169,8 +172,8 @@ function validateSettingsInput(input) {
     let stat;
     try {
       stat = fs.statSync(root);
-    } catch {
-      throw new Error("Le dossier racine n'existe pas ou n'est pas accessible.");
+    } catch (error) {
+      throw new Error(describeRootError(root, error));
     }
 
     if (!stat.isDirectory()) {
@@ -217,6 +220,36 @@ function validateSettingsInput(input) {
     integrationMode,
     openBehavior
   };
+}
+
+// A root typed or pasted by hand: the quotes added by Windows "Copy as path"
+// are dropped and ~ stands for the home folder.
+function normalizeRootPath(value) {
+  let root = String(value || '').trim();
+  if (/^(["']).+\1$/.test(root)) {
+    root = root.slice(1, -1).trim();
+  }
+  if (root === '~' || /^~[\\/]/.test(root)) {
+    root = path.join(os.homedir(), root.slice(1));
+  }
+  return root;
+}
+
+const ACCESS_DENIED_CODES = new Set(['EPERM', 'EACCES']);
+
+function isAccessDenied(error) {
+  return Boolean(error) && ACCESS_DENIED_CODES.has(error.code);
+}
+
+// macOS asks before an application reads files synced by OneDrive or another
+// cloud client: a refusal must not read as a missing folder.
+function describeRootError(root, error, platform = process.platform) {
+  if (isAccessDenied(error)) {
+    return platform === 'darwin'
+      ? `macOS refuse l'accès à ${root}. Autorisez Project Folder Launcher dans Réglages Système › Confidentialité et sécurité › Fichiers et dossiers (ou Accès complet au disque), puis réessayez.`
+      : `Accès refusé au dossier racine : ${root}`;
+  }
+  return `Le dossier racine n'existe pas : ${root}`;
 }
 
 function assertUniqueSubfolderShortcuts(subfolders) {
@@ -454,8 +487,11 @@ module.exports = {
   assertRelativeSubfolderPath,
   assertUniqueSubfolderShortcuts,
   createDefaultConfig,
+  describeRootError,
+  isAccessDenied,
   migrateConfig,
   normalizePosition,
+  normalizeRootPath,
   sanitizeSubfolder,
   sanitizeSubfolders,
   validateSettingsInput,

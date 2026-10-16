@@ -1,6 +1,6 @@
 'use strict';
 
-const { validateSettingsInput } = require('./config-store');
+const { normalizeRootPath, validateSettingsInput } = require('./config-store');
 const { FOUR_DIGITS, FULL_PROJECT_NUMBER } = require('./project-service');
 const {
   MAX_GLOBAL_SHORTCUT_LENGTH,
@@ -82,12 +82,13 @@ function validateOpenBehavior(value) {
   return value;
 }
 
+// A root typed in the settings, cleaned up like the one saved.
 function validateRootCandidate(value) {
   const root = String(value || '').trim();
   if (!root || root.length > 1000 || /[\r\n\0]/.test(root)) {
     throw new Error('Dossier racine invalide.');
   }
-  return root;
+  return normalizeRootPath(root);
 }
 
 function validateGlobalShortcut(value) {

@@ -9,6 +9,8 @@ const {
   ConfigStore,
   assertRelativeSubfolderPath,
   createDefaultConfig,
+  describeRootError,
+  normalizeRootPath,
   validateSettingsInput,
   withFileLockRetry
 } = require('../src/main/config-store');
@@ -35,6 +37,84 @@ test('legacy settings migrate to the current schema', t => {
   assert.equal(config.autoStart, true);
   assert.equal(config.reuseExplorerWindow, undefined);
   assert.equal(config.updates.lastNotifiedVersion, null);
+});
+
+// OneDrive reinstalled elsewhere: once the new root is saved, the recents
+// must stop opening the folders of the old one.
+test('recent folders follow a root that moved', t => {
+  const directory = createTempDirectory(t);
+  const oldRoot = path.join(directory, 'OneDrive - Ancien', 'Projets');
+  const newRoot = path.join(directory, 'CloudStorage', 'OneDrive-Nouveau', 'Projets');
+  fs.mkdirSync(newRoot, { recursive: true });
+  const configPath = path.join(directory, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({
+    ...createDefaultConfig(),
+    racine: oldRoot,
+    recentFolders: [
+      {
+        projectNumber: '2026-4889',
+        subfolderName: 'Plans',
+        subfolderPath: 'Plans\\Exécution',
+        folderPath: path.join(oldRoot, '2026', '2026-4889', 'Plans', 'Exécution'),
+        openedAt: 2000
+      },
+      { projectNumber: '', folderPath: path.join(directory, 'Ailleurs'), openedAt: 1000 }
+    ]
+  }));
+  const store = new ConfigStore(configPath, { platform: 'win32' });
+  const before = store.load().recentFolders;
+
+  store.applySettings({ ...store.config, racine: newRoot });
+
+  const [project, other] = store.config.recentFolders;
+  assert.equal(project.folderPath, path.join(newRoot, '2026', '2026-4889', 'Plans', 'Exécution'));
+  assert.notEqual(project.id, before[0].id);
+  assert.equal(other.folderPath, path.join(directory, 'Ailleurs'));
+  assert.equal(
+    JSON.parse(fs.readFileSync(configPath, 'utf8')).recentFolders[0].folderPath,
+    project.folderPath
+  );
+});
+
+test('a root saved by an earlier version rebases its stale recents at startup', t => {
+  const directory = createTempDirectory(t);
+  const configPath = path.join(directory, 'config.json');
+  fs.writeFileSync(configPath, JSON.stringify({
+    ...createDefaultConfig(),
+    racine: directory,
+    recentFolders: [{
+      id: 'stale',
+      projectNumber: '2025-0042',
+      subfolderPath: '',
+      folderPath: '/Users/lionel/OneDrive - Ancien/Projets/2025/2025-0042',
+      openedAt: 1000
+    }]
+  }));
+
+  const [recent] = new ConfigStore(configPath, { platform: 'win32' }).load().recentFolders;
+
+  assert.equal(recent.folderPath, path.join(directory, '2025', '2025-0042'));
+  assert.notEqual(recent.id, 'stale');
+});
+
+test('a typed root is cleaned up and its errors tell missing from refused', t => {
+  const directory = createTempDirectory(t);
+
+  assert.equal(normalizeRootPath(`  "${directory}"  `), directory);
+  assert.equal(normalizeRootPath('~'), os.homedir());
+  assert.equal(normalizeRootPath('~/Library/CloudStorage'), path.join(os.homedir(), 'Library', 'CloudStorage'));
+  assert.equal(validateSettingsInput({ ...createDefaultConfig(), racine: `"${directory}"` }).racine, directory);
+
+  const missing = path.join(directory, 'absent');
+  assert.throws(
+    () => validateSettingsInput({ ...createDefaultConfig(), racine: missing }),
+    error => error.message === `Le dossier racine n'existe pas : ${missing}`
+  );
+  assert.match(
+    describeRootError('/Users/lionel/Library/CloudStorage/OneDrive-X', { code: 'EPERM' }, 'darwin'),
+    /macOS refuse l'accès .*Confidentialité et sécurité/
+  );
+  assert.match(describeRootError('P:\\Projets', { code: 'EACCES' }, 'win32'), /^Accès refusé/);
 });
 
 test('the last notified update version is sanitized and persisted', t => {

@@ -2,7 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { assertRelativeSubfolderPath } = require('./config-store');
+const {
+  assertRelativeSubfolderPath,
+  isAccessDenied,
+  normalizeRootPath
+} = require('./config-store');
 
 const FOUR_DIGITS = /^\d{4}$/;
 const FULL_PROJECT_NUMBER = /^20\d{2}-\d{4}$/;
@@ -130,8 +134,16 @@ class ProjectService {
   // Years and project counts under a candidate root, shown in the settings.
   async inspectRoot(rootDir) {
     const root = String(rootDir || '').trim();
-    if (!root || !this.path.isAbsolute(root) || !(await this.isDirectory(root))) {
+    if (!root || !this.path.isAbsolute(root)) {
       return { exists: false, years: [] };
+    }
+
+    try {
+      await this.fs.promises.readdir(root);
+    } catch (error) {
+      return isAccessDenied(error)
+        ? { exists: true, accessDenied: true, years: [] }
+        : { exists: false, years: [] };
     }
 
     const years = await this.listYears(root);
@@ -140,6 +152,27 @@ class ProjectService {
       exists: true,
       years: years.map((year, index) => ({ year, projects: counts[index].length }))
     };
+  }
+
+  // Where the root dialog opens: the current root, or its closest parent
+  // still present when it was moved.
+  async findExistingFolder(candidate) {
+    let folder = normalizeRootPath(candidate);
+    if (!folder || !this.path.isAbsolute(folder)) {
+      return null;
+    }
+
+    for (let depth = 0; depth < 32; depth += 1) {
+      if (await this.isDirectory(folder)) {
+        return folder;
+      }
+      const parent = this.path.dirname(folder);
+      if (parent === folder) {
+        break;
+      }
+      folder = parent;
+    }
+    return null;
   }
 
   // A real project to browse from: the first preferred one still under the

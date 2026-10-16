@@ -105,7 +105,7 @@ Le mode `macos_signing=unsigned` génère un DMG de test conservé sept jours da
 
 ## Configuration
 
-Au premier lancement, si aucun dossier racine n'est configuré, la fenêtre Paramètres s'ouvre automatiquement.
+Au premier lancement, si aucun dossier racine n'est configuré, la fenêtre Paramètres s'ouvre automatiquement. Le chemin peut y être tapé, collé ou choisi avec « Parcourir… ». Si le dossier racine change d'emplacement (OneDrive réinstallé, par exemple), il suffit d'enregistrer le nouveau chemin : les dossiers récents suivent.
 
 Le fichier `config.json` est volontairement ignoré par Git, car il contient des chemins locaux. Un exemple public est fourni dans `config.example.json`.
 

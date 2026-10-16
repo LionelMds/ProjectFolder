@@ -234,6 +234,7 @@ class ApplicationController {
     const validated = validateSettingsInput(rawSettings);
     validated.raccourciGlobal = validateGlobalShortcut(validated.raccourciGlobal);
     const rollbackShortcut = this.transitionGlobalShortcut(validated.raccourciGlobal);
+    const rootChanged = validated.racine !== this.configStore.config.racine;
 
     try {
       this.configStore.applySettings(validated);
@@ -249,7 +250,8 @@ class ApplicationController {
     this.windowManager.broadcastConfigUpdated();
     this.logger.info('Settings saved', {
       integrationMode: this.configStore.config.integrationMode,
-      openBehavior: this.configStore.config.openBehavior
+      openBehavior: this.configStore.config.openBehavior,
+      rootChanged
     });
     return { success: true };
   }
@@ -340,11 +342,18 @@ class ApplicationController {
       return this.updaterService.openUpdateCenter();
     });
 
-    this.ipcRouter.handle('select-folder', [SETTINGS], async () => {
-      const result = await this.showFolderDialog({
+    this.ipcRouter.handle('select-folder', [SETTINGS], async (event, rawCurrentRoot) => {
+      const options = {
         properties: ['openDirectory'],
         title: 'Choisir le dossier racine'
-      });
+      };
+      const currentFolder = typeof rawCurrentRoot === 'string'
+        ? await this.projectService.findExistingFolder(rawCurrentRoot.slice(0, 1000))
+        : null;
+      if (currentFolder) {
+        options.defaultPath = currentFolder;
+      }
+      const result = await this.showFolderDialog(options);
       return !result.canceled && result.filePaths.length > 0
         ? result.filePaths[0]
         : null;

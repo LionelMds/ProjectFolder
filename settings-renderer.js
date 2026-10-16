@@ -160,62 +160,109 @@ function renderSection() {
 
 // — 01 root folder —
 
+// The path can be typed or pasted, or picked with Parcourir.
 function renderRootSection() {
     const input = el('input', {
         className: 'input',
-        attrs: { type: 'text', readonly: '', value: form.racine, placeholder: 'Cliquez sur Parcourir pour choisir…', 'aria-label': 'Dossier racine' }
+        attrs: {
+            type: 'text',
+            value: form.racine,
+            spellcheck: 'false',
+            autocomplete: 'off',
+            placeholder: isMac ? '/Users/vous/Library/CloudStorage/OneDrive-…/Projets' : 'P:\\Projets',
+            'aria-label': 'Dossier racine'
+        },
+        on: {
+            input: event => {
+                form.racine = event.target.value;
+                changed();
+                scheduleRootInspection();
+            }
+        }
     });
-    const nodes = [
+    return [
         sectionTitle('Dossier racine'),
         el('div', { className: 'path-row' }, [
             input,
             el('button', { className: 'btn btn-secondary', text: 'Parcourir…', attrs: { type: 'button' }, on: { click: browseRoot } })
         ]),
-        el('p', { className: 'help', text: 'Les projets y sont rangés par année : 2026\\2026-4889.' })
+        el('p', {
+            className: 'help',
+            text: `Tapez ou collez le chemin, ou choisissez-le. Les projets y sont rangés par année : ${isMac ? '2026/2026-4889' : '2026\\2026-4889'}.`
+        }),
+        el('div', { attrs: { id: 'rootStructure' } }, rootStructure())
     ];
+}
 
+function rootStructure() {
     const info = view.rootInfo;
-    if (form.racine && info) {
-        const years = info.years || [];
-        nodes.push(el('div', { className: 'structure' }, [
-            el('div', { className: 'kicker' }, el('span', { text: 'Structure détectée' })),
-            years.length > 0
-                ? el('div', { className: 'structure-years' }, years.flatMap(year => [
-                    icon('folder', 15),
-                    el('span', { text: year.year }),
-                    el('span', { className: 'text-muted', text: `${year.projects} projet${year.projects > 1 ? 's' : ''}` })
-                ]))
-                : null,
-            el('div', { className: `structure-status${years.length > 0 ? '' : ' warning'}` }, years.length > 0
-                ? [icon('check', 14), `Format YYYY-NNNN reconnu · ${years.length} année${years.length > 1 ? 's' : ''}`]
-                : [icon('triangle-alert', 14), info.exists ? 'Aucun dossier d’année (20XX) dans ce dossier.' : 'Ce dossier est introuvable.'])
-        ]));
+    if (!form.racine.trim() || !info) {
+        return null;
     }
-    return nodes;
+
+    const years = info.years || [];
+    let problem = '';
+    if (years.length === 0) {
+        if (info.accessDenied) {
+            problem = isMac
+                ? 'macOS refuse l’accès à ce dossier : autorisez Project Folder Launcher dans Réglages Système › Confidentialité et sécurité › Fichiers et dossiers (ou Accès complet au disque).'
+                : 'Accès refusé à ce dossier.';
+        } else {
+            problem = info.exists ? 'Aucun dossier d’année (20XX) dans ce dossier.' : 'Ce dossier est introuvable.';
+        }
+    }
+
+    return el('div', { className: 'structure' }, [
+        el('div', { className: 'kicker' }, el('span', { text: 'Structure détectée' })),
+        years.length > 0
+            ? el('div', { className: 'structure-years' }, years.flatMap(year => [
+                icon('folder', 15),
+                el('span', { text: year.year }),
+                el('span', { className: 'text-muted', text: `${year.projects} projet${year.projects > 1 ? 's' : ''}` })
+            ]))
+            : null,
+        el('div', { className: `structure-status${problem ? ' warning' : ''}` }, problem
+            ? [icon('triangle-alert', 14), problem]
+            : [icon('check', 14), `Format YYYY-NNNN reconnu · ${years.length} année${years.length > 1 ? 's' : ''}`])
+    ]);
+}
+
+// Only the structure block is redrawn: the field keeps its focus and caret.
+function renderRootStructure() {
+    document.getElementById('rootStructure')?.replaceChildren(...[rootStructure()].filter(Boolean));
+}
+
+let rootInspectionTimer = null;
+
+function scheduleRootInspection() {
+    clearTimeout(rootInspectionTimer);
+    rootInspectionTimer = setTimeout(inspectRoot, 350);
 }
 
 async function inspectRoot() {
-    view.rootInfo = null;
-    if (!form.racine) {
+    clearTimeout(rootInspectionTimer);
+    const root = form.racine.trim();
+    if (!root) {
+        view.rootInfo = null;
+        renderRootStructure();
         return;
     }
-    const root = form.racine;
     const result = await window.electronAPI.inspectRoot(root);
-    if (form.racine === root && result && result.success) {
+    if (form.racine.trim() === root && result && result.success) {
         view.rootInfo = result;
-        if (view.section === 'root') {
-            renderSection();
-        }
+        renderRootStructure();
     }
 }
 
 async function browseRoot() {
-    const folderPath = await window.electronAPI.selectFolder();
-    if (folderPath) {
+    const folderPath = await window.electronAPI.selectFolder(form.racine);
+    if (typeof folderPath === 'string' && folderPath) {
         form.racine = folderPath;
         changed();
         renderSection();
         inspectRoot();
+    } else if (folderPath && folderPath.error) {
+        setStatus(folderPath.error, true);
     }
 }
 

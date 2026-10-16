@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const path = require('path');
 const { RECENT_FOLDERS_LIMIT } = require('./constants');
 
+const FULL_PROJECT_NUMBER = /^20\d{2}-\d{4}$/;
+
 function createRecentFolderId(folderPath, platform = process.platform) {
   const normalizedPath = path.normalize(String(folderPath || ''));
   const identity = platform === 'win32' ? normalizedPath.toLowerCase() : normalizedPath;
@@ -65,6 +67,38 @@ function normalizeRecentFolders(entries, options = {}) {
     .slice(0, limit);
 }
 
+// Folder of a project's subfolder under a root, or null when the entry does
+// not describe one (older recents, a subfolder path leaving the project).
+function projectFolderPath(root, projectNumber, subfolderPath) {
+  const number = String(projectNumber || '').trim();
+  if (!root || !FULL_PROJECT_NUMBER.test(number)) {
+    return null;
+  }
+
+  const segments = String(subfolderPath || '').trim().split(/[\\/]+/).filter(Boolean);
+  if (segments.some(segment => segment === '..' || /^[A-Za-z]:$/.test(segment))) {
+    return null;
+  }
+  return path.join(root, number.slice(0, 4), number, ...segments);
+}
+
+// Recents remember the absolute folder they opened, but the root may move
+// since (OneDrive reinstalled, share renamed): each project recent follows
+// it, its path rebuilt from the project number and the subfolder.
+function rebaseRecentFolders(entries, root, options = {}) {
+  const rootDir = String(root || '').trim();
+  if (!Array.isArray(entries) || !rootDir) {
+    return normalizeRecentFolders(entries, options);
+  }
+
+  return normalizeRecentFolders(entries.map(entry => {
+    const folderPath = entry && projectFolderPath(rootDir, entry.projectNumber, entry.subfolderPath);
+    return folderPath && folderPath !== entry.folderPath
+      ? { ...entry, id: undefined, folderPath }
+      : entry;
+  }), options);
+}
+
 function rememberRecentFolder(currentEntries, entry, options = {}) {
   const normalized = normalizeRecentFolder({
     ...entry,
@@ -86,5 +120,7 @@ module.exports = {
   createRecentFolderId,
   normalizeRecentFolder,
   normalizeRecentFolders,
+  projectFolderPath,
+  rebaseRecentFolders,
   rememberRecentFolder
 };
